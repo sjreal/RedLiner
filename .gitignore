@@ -38,5 +38,12 @@ Thumbs.db
 # Environment secrets
 .env
 .env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 data/email_config.json
+data/redliner_deals.db
+data/redliner_deals.db-*
+data/mcp_audit.jsonl
 *.backup.yaml

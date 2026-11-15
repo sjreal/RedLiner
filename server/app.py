@@ -1,10 +1,13 @@
+import base64
 import os
+import secrets
 import shutil
 import yaml
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -27,6 +30,10 @@ from subgraphs.document_parser import DocumentParserSubgraph
 from subgraphs.human_approval import FeedbackAgent
 from subgraphs.vendor_information.osint_collectors import OSINTCollector
 from Helpers.logger import get_recent_logs
+from core.env import load_app_env
+from core.report import build_deal_report, report_to_markdown
+
+load_app_env()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOADS_DIR = BASE_DIR / "data" / "uploads"
@@ -38,10 +45,22 @@ PLAYBOOKS_DIR = BASE_DIR / "playbooks"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    from services.inbox_worker import start_worker_from_env, stop_worker
+
+    start_worker_from_env()
+    try:
+        yield
+    finally:
+        stop_worker()
+
+
 app = FastAPI(
     title="RedLiner — B2B Autonomous Contract Negotiation & Redlining",
     description="Agentic contract orchestration with subagents and subgraphs matching the project synopsis architecture.",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -51,6 +70,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def demo_basic_auth(request: Request, call_next):
+    """One shared demo login; no user table, roles or RLS for the college demo."""
+    password = os.environ.get("DEMO_PASSWORD", "").strip()
+    if not password or request.method == "OPTIONS":
+        return await call_next(request)
+    if request.url.path == "/api/health" or request.url.path.startswith("/api/webhook/"):
+        return await call_next(request)
+
+    header = request.headers.get("authorization", "")
+    scheme, _, encoded = header.partition(" ")
+    if scheme.lower() == "basic" and encoded:
+        try:
+            decoded = base64.b64decode(encoded).decode("utf-8")
+            username, _, supplied = decoded.partition(":")
+        except (ValueError, UnicodeDecodeError):
+            username, supplied = "", ""
+        expected_user = os.environ.get("DEMO_USER", "demo")
+        if secrets.compare_digest(username, expected_user) and secrets.compare_digest(
+            supplied, password
+        ):
+            return await call_next(request)
+
+    return Response(
+        content="RedLiner demo login required.",
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="RedLiner Demo"'},
+    )
+
 
 @app.middleware("http")
 async def add_no_cache_headers(request: Request, call_next):
@@ -76,11 +125,14 @@ def health_check():
         "service": "RedLiner Core Orchestration System",
         "agents": [
             "MainOrchestrator",
-            "LegalRedlinerAgent",
-            "VendorIntelligenceAgent",
-            "EmailWriterAgent",
-            "ProcurementNegotiatorAgent",
-            "FinanceComplianceRiskAgent"
+            "CrewAI Procurement Negotiator",
+            "CrewAI Finance Compliance Reviewer",
+            "CrewAI Email Writer",
+            "ADK Document Parser",
+            "ADK Legal Review",
+            "ADK Vendor Intelligence",
+            "ADK Tradeoff Engine",
+            "ADK Approval Gate"
         ],
         "subgraphs": [
             "DocumentParserSubgraph",
@@ -89,6 +141,39 @@ def health_check():
             "TradeoffEngineSubgraph",
             "HumanApprovalSubgraph"
         ],
+        "frameworks": ["CrewAI", "Google ADK"],
+        "runtime": "CrewAI + Google ADK",
+        "mcp_enabled": os.environ.get("MCP_ENABLED", "true").lower()
+        not in {"0", "false", "no", "off"},
+        "a2a_enabled": os.environ.get("A2A_ENABLED", "false").lower()
+        in {"1", "true", "yes", "on"},
+        "persistence": "postgres" if os.environ.get("DATABASE_URL") else "sqlite",
+    }
+
+
+@app.get("/api/settings")
+def get_settings():
+    """Non-secret effective demo settings for the workbench."""
+    email_config = email_writer.service.get_config(mask_secret=True)
+    return {
+        "model": os.environ.get("OPENCODE_MODEL", "glm-5.3-flash"),
+        "email_provider": email_config.get("provider", "sandbox"),
+        "smtp_user": email_config.get("smtp_user", ""),
+        "mcp_enabled": os.environ.get("MCP_ENABLED", "true").lower()
+        not in {"0", "false", "no", "off"},
+        "live_osint_enabled": os.environ.get("LIVE_OSINT_ENABLED", "true").lower()
+        not in {"0", "false", "no", "off"},
+        "llm_guardrails_enabled": os.environ.get("LLM_GUARDRAILS_ENABLED", "true").lower()
+        not in {"0", "false", "no", "off"},
+        "langfuse_enabled": os.environ.get("LANGFUSE_TRACING_ENABLED", "true").lower()
+        not in {"0", "false", "no", "off"}
+        and bool(os.environ.get("LANGFUSE_PUBLIC_KEY")),
+        "a2a_enabled": os.environ.get("A2A_ENABLED", "false").lower()
+        in {"1", "true", "yes", "on"},
+        "database": "postgres" if os.environ.get("DATABASE_URL") else "sqlite",
+        "demo_auth_enabled": bool(os.environ.get("DEMO_PASSWORD")),
+        "gmail_poll_enabled": os.environ.get("GMAIL_POLL_ENABLED", "false").lower()
+        in {"1", "true", "yes", "on"},
     }
 
 
@@ -411,25 +496,72 @@ def send_test_email(req: SendTestEmailRequest):
 
 
 @app.post("/api/webhook/email")
-def inbound_email_webhook(payload: InboundEmailWebhook, auto_process: bool = True):
+def inbound_email_webhook(
+    payload: InboundEmailWebhook,
+    auto_process: bool = True,
+    offered_price: Optional[float] = None,
+    target_price: Optional[float] = None,
+    x_redliner_webhook_token: Optional[str] = Header(default=None),
+):
     """
     Inbound Cloudflare Email Routing Webhook receiver.
     Extracts vendor .docx/.pdf attachments, runs OSINT screening, executes legal redlining,
     and drafts a structured counter-proposal email.
     """
-    inbound_res = email_writer.service.process_inbound_webhook(payload)
-    saved_attachments = inbound_res.get("saved_attachments", [])
+    expected_token = os.environ.get("REDLINER_WEBHOOK_TOKEN", "").strip()
+    if expected_token and (
+        not x_redliner_webhook_token
+        or not secrets.compare_digest(expected_token, x_redliner_webhook_token)
+    ):
+        raise HTTPException(status_code=401, detail="Invalid RedLiner webhook token.")
 
-    if not saved_attachments:
-        default_sample = SAMPLE_DIR / "vendor_saas_agreement.docx"
-        if default_sample.exists():
-            saved_attachments = [str(default_sample)]
+    inbound_res = email_writer.service.process_inbound_webhook(payload)
+    saved_attachments = [
+        filename
+        for filename in inbound_res.get("saved_attachments", [])
+        if Path(filename).suffix.lower() in {".docx", ".pdf"}
+    ]
+
+    headers = {str(k).lower(): str(v) for k, v in (payload.headers or {}).items()}
+    references = payload.references or [
+        item for item in headers.get("references", "").split() if item
+    ]
+    in_reply_to = payload.in_reply_to or headers.get("in-reply-to")
+    matched_deal = orchestrator.find_deal_for_reply(
+        in_reply_to=in_reply_to,
+        references=references,
+        thread_id=headers.get("x-gm-thrid"),
+        deal_reference=headers.get("x-redliner-deal"),
+    )
+    if matched_deal:
+        reply_text = "\n".join(
+            part for part in (payload.subject, payload.text_content, payload.html_content) if part
+        )
+        reply_state = orchestrator.handle_vendor_reply(
+            matched_deal,
+            reply_text[:100000],
+            subject=payload.subject,
+        )
+        return {
+            "status": (
+                "COUNTEROFFER_APPLIED"
+                if reply_state.counteroffer.get("status") == "APPLIED"
+                else "COUNTEROFFER_NEEDS_REVIEW"
+            ),
+            "deal_id": matched_deal,
+            "iteration": reply_state.iteration,
+            "run_status": reply_state.run_status,
+            "convergence_reason": reply_state.convergence_reason,
+            "counteroffer": reply_state.counteroffer,
+            "requires_human_approval": reply_state.requires_human_approval,
+            "inbound_info": inbound_res,
+        }
 
     if not auto_process or not saved_attachments:
         return {
             "status": "RECEIVED",
             "inbound_info": inbound_res,
-            "message": "Email received without attachments."
+            "message": "Email received; no supported .docx or .pdf contract attachment was found."
         }
 
     contract_file_path = Path(saved_attachments[0])
@@ -447,6 +579,9 @@ def inbound_email_webhook(payload: InboundEmailWebhook, auto_process: bool = Tru
         contract_path=contract_file_path,
         vendor_name=vendor_query,
         output_dir=OUTPUTS_DIR,
+        email_context="\n".join((payload.subject or "", payload.text_content or "", payload.html_content or ""))[:100000],
+        offered_price=offered_price,
+        target_price=target_price,
     )
 
     return {
@@ -457,6 +592,28 @@ def inbound_email_webhook(payload: InboundEmailWebhook, auto_process: bool = Tru
         "vendor_risk_tier": deal_state.vendor_profile.risk_tier.value if deal_state.vendor_profile else "UNKNOWN",
         "violations_detected": len(deal_state.redline_actions),
         "requires_human_approval": deal_state.requires_human_approval,
+        "run_status": deal_state.run_status,
+        "security_status": deal_state.security_status,
+        "security_flags": deal_state.security_flags,
+        "guardrail_flags": deal_state.guardrail_flags,
+        "llm_status": deal_state.llm_status,
+        "llm_usage": deal_state.llm_usage,
+        "trace_id": deal_state.trace_id,
+        "langfuse_trace_url": deal_state.langfuse_trace_url,
+        "human_review_summary": deal_state.human_review_summary,
+        "procurement_plan": deal_state.procurement_plan,
+        "finance_analysis": deal_state.finance_analysis,
+        "crew_finance_review": deal_state.crew_finance_review,
+        "tradeoff_proposal": deal_state.tradeoff_proposal,
+        "runtime_frameworks": deal_state.runtime_frameworks,
+        "crew_status": deal_state.crew_status,
+        "crew_error": deal_state.crew_error,
+        "adk_event_count": deal_state.adk_event_count,
+        "pipeline_error": deal_state.pipeline_error,
+        "mcp_tools_used": deal_state.mcp_tools_used,
+        "mcp_errors": deal_state.mcp_errors,
+        "iteration": deal_state.iteration,
+        "convergence_reason": deal_state.convergence_reason,
         "redlined_docx_filename": deal_state.redline_result.output_docx_filename if deal_state.redline_result else None,
         "counter_proposal_email": deal_state.counter_proposal_email,
         "inbound_info": inbound_res,
@@ -464,24 +621,37 @@ def inbound_email_webhook(payload: InboundEmailWebhook, auto_process: bool = Tru
 
 
 class DispatchProposalRequest(BaseModel):
-    contract_filename: str
-    vendor_name: str
-    recipient_email: str
-    recipient_name: str
+    contract_filename: str = Field(examples=["vendor_saas_agreement_redlined.docx"])
+    vendor_name: str = Field(examples=["ApexCloud Enterprise Ltd"])
+    recipient_email: str = Field(examples=["counsel@example.com"])
+    recipient_name: str = Field(default="Vendor Legal Counsel")
+    deal_id: Optional[str] = Field(default=None, examples=["DEAL-2026-001"])
+    thread_id: Optional[str] = None
 
 
 @app.post("/api/email/dispatch-counter-proposal")
 def dispatch_counter_proposal(req: DispatchProposalRequest):
     """Executes EmailWriterAgent to dispatch counter-proposal email with native redlined Word document."""
-    output_filename = f"{Path(req.contract_filename).stem}_redlined.docx"
-    redlined_path = OUTPUTS_DIR / output_filename
-    if not redlined_path.exists():
-        redlined_path = SAMPLE_DIR / output_filename
+    requested_name = Path(req.contract_filename).name
+    # Accept an already generated redlined filename directly, which is useful
+    # for the Gmail poller where the output name includes a deal/message prefix.
+    direct_output = OUTPUTS_DIR / requested_name
+    output_filename = f"{Path(requested_name).stem}_redlined.docx"
+    redlined_path = (
+        direct_output
+        if direct_output.exists() and direct_output.suffix.lower() == ".docx"
+        else OUTPUTS_DIR / output_filename
+    )
 
     if not redlined_path.exists():
-        source_path = SAMPLE_DIR / req.contract_filename
+        sample_output = SAMPLE_DIR / output_filename
+        if sample_output.exists():
+            redlined_path = sample_output
+
+    if not redlined_path.exists():
+        source_path = SAMPLE_DIR / requested_name
         if not source_path.exists():
-            source_path = UPLOADS_DIR / req.contract_filename
+            source_path = UPLOADS_DIR / requested_name
         if not source_path.exists():
             raise HTTPException(status_code=404, detail=f"Source contract '{req.contract_filename}' not found.")
         parsed = doc_parser.execute(source_path)
@@ -506,15 +676,128 @@ def dispatch_counter_proposal(req: DispatchProposalRequest):
         vendor=vendor,
         recipient_email=req.recipient_email,
         recipient_name=req.recipient_name,
+        deal_id=req.deal_id,
     )
 
     dispatch_result = email_writer.dispatch_email(counter_email, redlined_path)
+    if req.deal_id:
+        try:
+            orchestrator.record_outbound(
+                counter_email,
+                {**dispatch_result, "thread_id": req.thread_id},
+            )
+        except Exception as exc:
+            # The email may already be delivered; never turn a persistence
+            # failure into a false delivery failure.
+            print(f"[dispatch] Could not persist outbound message: {exc}")
 
     return {
         "status": "DISPATCHED",
         "email_details": counter_email,
         "dispatch_receipt": dispatch_result,
     }
+
+
+class HumanDecisionRequest(BaseModel):
+    decision: str = Field(examples=["APPROVE"])
+    reviewer: str = Field(default="", examples=["reviewer@example.com"])
+    notes: str = Field(default="", examples=["Approved for dispatch."])
+    edited_clauses: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        examples=[[{"clause_id": "CL-1", "text": "Revised clause"}]],
+    )
+
+
+class CounterofferRequest(BaseModel):
+    offered_price: float = Field(examples=[110000])
+    target_price: Optional[float] = Field(default=None, examples=[100000])
+    notes: str = Field(default="", examples=["Vendor moved $10k."])
+
+
+@app.get("/api/deals")
+def list_deals(limit: int = 50):
+    """List persisted deals, newest first."""
+    return {"deals": orchestrator.list_deals(limit)}
+
+
+@app.get("/api/deals/{deal_id}")
+def get_deal(deal_id: str):
+    """Return the persisted state for one deal."""
+    state = orchestrator.get_deal(deal_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Deal not found: {deal_id}")
+    return state.model_dump(mode="json")
+
+
+@app.get("/api/deals/{deal_id}/report")
+def get_deal_report(deal_id: str, format: str = "json"):
+    """Return a structured JSON report or a Markdown export."""
+    state = orchestrator.get_deal(deal_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Deal not found: {deal_id}")
+    report = build_deal_report(
+        state,
+        events=orchestrator.repository.events(deal_id, 200),
+        history=orchestrator.repository.history(deal_id, 100),
+    )
+    if format.lower() == "markdown":
+        return Response(
+            content=report_to_markdown(report),
+            media_type="text/markdown",
+            headers={"Content-Disposition": f'attachment; filename="{deal_id}-report.md"'},
+        )
+    return report.model_dump(mode="json")
+
+
+@app.get("/api/deals/{deal_id}/events")
+def get_deal_events(deal_id: str, limit: int = 100):
+    state = orchestrator.get_deal(deal_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Deal not found: {deal_id}")
+    return {"events": orchestrator.repository.events(deal_id, limit)}
+
+
+@app.get("/api/deals/{deal_id}/history")
+def get_deal_history(deal_id: str, limit: int = 50):
+    state = orchestrator.get_deal(deal_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Deal not found: {deal_id}")
+    return {"history": orchestrator.repository.history(deal_id, limit)}
+
+
+@app.post("/api/deals/{deal_id}/decision")
+def decide_deal(deal_id: str, req: HumanDecisionRequest):
+    """Approve, reject or request manual edits for a paused deal."""
+    try:
+        state = orchestrator.decide(
+            deal_id,
+            decision=req.decision,
+            reviewer=req.reviewer,
+            notes=req.notes,
+            edited_clauses=req.edited_clauses,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return state.model_dump(mode="json")
+
+
+@app.post("/api/deals/{deal_id}/counteroffer")
+def counteroffer_deal(deal_id: str, req: CounterofferRequest):
+    """Apply a vendor counteroffer and run the next bounded iteration."""
+    try:
+        state = orchestrator.apply_counteroffer(
+            deal_id,
+            offered_price=req.offered_price,
+            target_price=req.target_price,
+            notes=req.notes,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return state.model_dump(mode="json")
 
 
 @app.get("/api/helpers/logs")

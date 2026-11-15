@@ -7,10 +7,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
+from email.utils import make_msgid
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 
+from core.env import load_app_env
 from core.models import (
     InboundEmailWebhook,
     OutboundEmailRequest,
@@ -18,6 +20,8 @@ from core.models import (
     VendorProfile,
 )
 from Helpers.logger import log_email_audit
+
+load_app_env()
 
 CLOUDFLARE_WORKER_URL = os.environ.get("CLOUDFLARE_WORKER_URL", "http://localhost:8787")
 INCOMING_DIR = Path(__file__).resolve().parent.parent / "data" / "incoming"
@@ -34,7 +38,7 @@ class EmailConnectorService:
     def _ensure_config(self) -> None:
         if not CONFIG_FILE.exists():
             default_conf = {
-                "provider": "sandbox",  # "smtp", "resend", "sandbox"
+                "provider": os.environ.get("EMAIL_PROVIDER", "sandbox").lower(),
                 "smtp_host": "smtp.gmail.com",
                 "smtp_port": 587,
                 "smtp_user": os.environ.get("SMTP_USER", ""),
@@ -125,6 +129,7 @@ class EmailConnectorService:
         vendor: Optional[VendorProfile] = None,
         recipient_email: str = "vendor-legal@counterparty.com",
         recipient_name: str = "Vendor Legal Counsel",
+        deal_id: Optional[str] = None,
     ) -> OutboundEmailRequest:
         vendor_name = vendor.company_name if vendor else "Vendor"
 
@@ -170,6 +175,12 @@ class EmailConnectorService:
 
         email_body = "\n".join(body_lines)
         subject = f"Redline & Counter-Proposal: {redline_result.contract_name} — RedLiner Enterprise Legal"
+        message_id = make_msgid(domain="redliner.local")
+        reference = deal_id or f"RL-DEAL-{abs(hash(redline_result.contract_name)) % 100000:05d}"
+        headers = {
+            "Message-ID": message_id,
+            "X-RedLiner-Deal": reference,
+        }
 
         return OutboundEmailRequest(
             recipient_email=recipient_email,
@@ -178,7 +189,10 @@ class EmailConnectorService:
             subject=subject,
             counter_proposal_body=email_body,
             redlined_docx_filename=redline_result.output_docx_filename,
-            deal_reference=f"RL-DEAL-{abs(hash(redline_result.contract_name)) % 100000:05d}",
+            deal_reference=reference,
+            deal_id=deal_id,
+            message_id=message_id,
+            headers=headers,
         )
 
     def _send_smtp(
@@ -187,7 +201,8 @@ class EmailConnectorService:
         recipient_email: str,
         subject: str,
         body_text: str,
-        attachment_path: Optional[Path] = None
+        attachment_path: Optional[Path] = None,
+        headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Transmits a real email with attachment over standard SMTP (e.g. Gmail App Password, Brevo, AWS SES)."""
         host = config.get("smtp_host", "smtp.gmail.com")
@@ -205,6 +220,9 @@ class EmailConnectorService:
         msg["From"] = f"{from_name} <{from_email}>"
         msg["To"] = recipient_email
         msg["Subject"] = subject
+        for name, value in (headers or {}).items():
+            if value and name.lower() not in {"from", "to", "subject"}:
+                msg[name] = value
 
         html_body = f"""
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #201515; max-width: 650px; margin: 0 auto; padding: 20px; border: 1px solid #E8E2D9; border-radius: 8px;">
@@ -258,7 +276,8 @@ class EmailConnectorService:
         recipient_email: str,
         subject: str,
         body_text: str,
-        attachment_path: Optional[Path] = None
+        attachment_path: Optional[Path] = None,
+        headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Transmits a real email using Resend API."""
         api_key = config.get("resend_api_key", "")
@@ -284,6 +303,8 @@ class EmailConnectorService:
             "text": body_text,
             "attachments": attachments
         }
+        if headers:
+            payload["headers"] = headers
 
         resp = requests.post(
             "https://api.resend.com/emails",
@@ -299,6 +320,54 @@ class EmailConnectorService:
             "provider": "Resend API",
             "delivered_to": recipient_email,
             "resend_response": resp.json()
+        }
+
+    def _send_cloudflare_worker(
+        self,
+        recipient_email: str,
+        recipient_name: str,
+        subject: str,
+        body_text: str,
+        attachment_path: Optional[Path] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """Send through the Cloudflare Worker; its Resend key stays in Worker secrets."""
+        attachments = []
+        if attachment_path and attachment_path.exists():
+            attachments.append({
+                "filename": attachment_path.name,
+                "content_base64": base64.b64encode(attachment_path.read_bytes()).decode("ascii"),
+            })
+        endpoint = f"{self.worker_url.rstrip('/')}/api/send-email"
+        response = requests.post(
+            endpoint,
+            headers=(
+                {"Authorization": f"Bearer {os.environ['CLOUDFLARE_DISPATCH_TOKEN']}"}
+                if os.environ.get("CLOUDFLARE_DISPATCH_TOKEN")
+                else {}
+            ),
+            json={
+                "recipient_email": recipient_email,
+                "recipient_name": recipient_name,
+                "subject": subject,
+                "text_content": body_text,
+                "html_content": "",
+                "attachments": attachments,
+                "headers": headers or {},
+            },
+            timeout=30.0,
+        )
+        if not response.ok:
+            raise RuntimeError(
+                f"Cloudflare Worker returned HTTP {response.status_code}: {response.text[:500]}"
+            )
+        result = response.json()
+        real_delivery = result.get("provider") == "resend" and result.get("success", True)
+        return {
+            "is_real_delivery": real_delivery,
+            "provider": "Cloudflare Worker / Resend" if real_delivery else "Cloudflare Worker (mock mode)",
+            "delivered_to": recipient_email,
+            "worker_response": result,
         }
 
     def send_test_email(self, target_email: str) -> Dict[str, Any]:
@@ -321,12 +390,53 @@ Your RedLiner system is ready to autonomously dispatch redlined Word documents a
             return self._send_smtp(config, target_email, test_subject, test_body, None)
         elif provider == "resend":
             return self._send_resend(config, target_email, test_subject, test_body, None)
+        elif provider == "cloudflare":
+            return self._send_cloudflare_worker(
+                target_email, "RedLiner Test Recipient", test_subject, test_body
+            )
         else:
             return {
                 "is_real_delivery": False,
                 "provider": "Simulated Gateway (Sandbox Mode)",
                 "note": "Email dispatcher is currently in Sandbox Simulation Mode. Switch to Direct SMTP or Resend to send real emails to your inbox."
             }
+
+    def send_notification(
+        self,
+        *,
+        recipient_email: str,
+        subject: str,
+        body_text: str,
+    ) -> Dict[str, Any]:
+        """Send a short reviewer notification without a document attachment."""
+        config = self.get_config(mask_secret=False)
+        provider = config.get("provider", "sandbox").lower()
+        if provider == "smtp" and config.get("smtp_user") and config.get("smtp_password"):
+            return self._send_smtp(
+                config=config,
+                recipient_email=recipient_email,
+                subject=subject,
+                body_text=body_text,
+            )
+        if provider == "resend" and config.get("resend_api_key"):
+            return self._send_resend(
+                config=config,
+                recipient_email=recipient_email,
+                subject=subject,
+                body_text=body_text,
+            )
+        if provider == "cloudflare":
+            return self._send_cloudflare_worker(
+                recipient_email,
+                "Reviewer",
+                subject,
+                body_text,
+            )
+        return {
+            "is_real_delivery": False,
+            "provider": "notification-sandbox",
+            "delivered_to": recipient_email,
+        }
 
     def dispatch_email(
         self,
@@ -336,6 +446,56 @@ Your RedLiner system is ready to autonomously dispatch redlined Word documents a
         config = self.get_config(mask_secret=False)
         provider = config.get("provider", "sandbox").lower()
 
+        if provider == "cloudflare":
+            try:
+                result = self._send_cloudflare_worker(
+                    recipient_email=outbound_request.recipient_email,
+                    recipient_name=outbound_request.recipient_name,
+                    subject=outbound_request.subject,
+                    body_text=outbound_request.counter_proposal_body,
+                    attachment_path=docx_file_path,
+                    headers=outbound_request.headers,
+                )
+                is_real = result["is_real_delivery"]
+                log_email_audit(
+                    direction="OUTBOUND",
+                    source="CLOUDFLARE_WORKER",
+                    recipient_or_sender=outbound_request.recipient_email,
+                    subject=outbound_request.subject,
+                    has_attachment=bool(docx_file_path),
+                    attachment_name=outbound_request.redlined_docx_filename,
+                    status="SUCCESS" if is_real else "MOCK_DISPATCH",
+                    details={"provider": result["provider"]},
+                )
+                return {
+                    "status": "SUCCESS" if is_real else "LOCAL_MOCK_DISPATCHED",
+                    "is_real_delivery": is_real,
+                    "provider": result["provider"],
+                    "recipient": outbound_request.recipient_email,
+                    "subject": outbound_request.subject,
+                    "deal_reference": outbound_request.deal_reference,
+                    "response": result["worker_response"],
+                }
+            except Exception as exc:
+                log_email_audit(
+                    direction="OUTBOUND",
+                    source="CLOUDFLARE_WORKER",
+                    recipient_or_sender=outbound_request.recipient_email,
+                    subject=outbound_request.subject,
+                    has_attachment=bool(docx_file_path),
+                    attachment_name=outbound_request.redlined_docx_filename,
+                    status="ERROR",
+                    details={"error_type": type(exc).__name__},
+                )
+                return {
+                    "status": "LOCAL_MOCK_DISPATCHED",
+                    "is_real_delivery": False,
+                    "provider": "Cloudflare Worker unavailable (not sent)",
+                    "error": str(exc),
+                    "recipient": outbound_request.recipient_email,
+                    "subject": outbound_request.subject,
+                }
+
         # If SMTP is configured with user and password, attempt real SMTP delivery
         if provider == "smtp" and config.get("smtp_user") and config.get("smtp_password"):
             try:
@@ -344,7 +504,8 @@ Your RedLiner system is ready to autonomously dispatch redlined Word documents a
                     recipient_email=outbound_request.recipient_email,
                     subject=outbound_request.subject,
                     body_text=outbound_request.counter_proposal_body,
-                    attachment_path=docx_file_path
+                    attachment_path=docx_file_path,
+                    headers=outbound_request.headers,
                 )
                 log_email_audit(
                     direction="OUTBOUND",
@@ -398,7 +559,8 @@ Your RedLiner system is ready to autonomously dispatch redlined Word documents a
                     recipient_email=outbound_request.recipient_email,
                     subject=outbound_request.subject,
                     body_text=outbound_request.counter_proposal_body,
-                    attachment_path=docx_file_path
+                    attachment_path=docx_file_path,
+                    headers=outbound_request.headers,
                 )
                 log_email_audit(
                     direction="OUTBOUND",

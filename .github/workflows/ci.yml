@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen --python 3.12
+      - name: Test suite
+        env:
+          PYTHONPATH: .
+          LIVE_OSINT_ENABLED: "false"
+          MCP_ENABLED: "false"
+          LANGFUSE_TRACING_ENABLED: "false"
+        run: uv run pytest -q

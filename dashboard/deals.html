@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RedLiner — Deal Review Workbench</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=2026.8">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-section">
+        <a class="logo-badge" href="/" style="text-decoration:none;">R</a>
+        <div>
+          <h1 class="brand-title">Deal Review Workbench</h1>
+          <p class="brand-tagline">Human-in-the-loop approvals, counteroffers and audit history</p>
+        </div>
+      </div>
+      <div class="header-status">
+        <a class="btn btn-secondary" href="/">← Dashboard</a>
+        <button class="btn btn-primary" id="btn-refresh-deals">↻ Refresh</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div class="deals-layout">
+      <section class="card deals-list-card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Deals</h2>
+            <p class="card-desc">Persisted SQLite/PostgreSQL records</p>
+          </div>
+        </div>
+        <div id="deal-list" class="deal-list">
+          <p class="deal-empty">Loading deals…</p>
+        </div>
+        <div class="deal-settings">
+          <h3 class="deal-section-title">Demo settings</h3>
+          <div id="settings-summary" class="deal-settings-grid">
+            <span>Loading…</span>
+          </div>
+          <a class="btn btn-secondary" href="/">Email & playbook settings</a>
+        </div>
+      </section>
+
+      <section class="card deals-detail-card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title" id="deal-title">Select a deal</h2>
+            <p class="card-desc" id="deal-subtitle">Pick a row to review its context.</p>
+          </div>
+          <div class="deal-header-actions">
+            <a id="btn-deal-docx" class="btn btn-secondary" href="#">Download DOCX</a>
+            <a id="btn-deal-report" class="btn btn-secondary" href="#" target="_blank" rel="noopener">Download report</a>
+            <span id="deal-status" class="status-chip">—</span>
+          </div>
+        </div>
+
+        <div id="deal-detail" class="deal-detail" hidden>
+          <div class="deal-summary-grid">
+            <div class="mini-metric"><span>Vendor</span><strong id="deal-vendor">—</strong></div>
+            <div class="mini-metric"><span>Risk tier</span><strong id="deal-risk">—</strong></div>
+            <div class="mini-metric"><span>Iteration</span><strong id="deal-iteration">—</strong></div>
+            <div class="mini-metric"><span>Utility</span><strong id="deal-utility">—</strong></div>
+          </div>
+          <p class="deal-trace-line">
+            <strong>Trace:</strong>
+            <a id="deal-trace-link" href="#" target="_blank" rel="noopener">Not recorded</a>
+          </p>
+          <p class="deal-text" id="deal-counteroffer">No vendor counteroffer recorded.</p>
+
+          <h3 class="deal-section-title">Review summary</h3>
+          <p id="deal-summary" class="deal-text">—</p>
+
+          <h3 class="deal-section-title">Contract clauses</h3>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead><tr><th>Type</th><th>Heading</th><th>Text</th></tr></thead>
+              <tbody id="deal-clauses"></tbody>
+            </table>
+          </div>
+
+          <h3 class="deal-section-title">Proposed redlines</h3>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead><tr><th>Severity</th><th>Clause</th><th>Rule</th><th>Requested change</th></tr></thead>
+              <tbody id="deal-redlines"></tbody>
+            </table>
+          </div>
+
+          <h3 class="deal-section-title">Counter-proposal email</h3>
+          <p class="deal-text" id="deal-email-subject">—</p>
+          <pre class="deal-email-body" id="deal-email-body">—</pre>
+          <div class="deal-dispatch-row">
+            <input id="dispatch-recipient" class="search-input" type="email" placeholder="Recipient email">
+            <button class="btn btn-primary" id="btn-dispatch-deal">Dispatch to vendor</button>
+          </div>
+
+          <h3 class="deal-section-title">Human decision</h3>
+          <label class="deal-label" for="review-notes">Reviewer notes</label>
+          <textarea id="review-notes" class="search-input" rows="3" placeholder="Explain the approval, rejection or manual edit."></textarea>
+          <label class="deal-label" for="edited-clauses">Manual edits (optional JSON)</label>
+          <textarea id="edited-clauses" class="search-input" rows="3" placeholder='[{"clause_id":"CL-1","text":"Revised clause"}]'></textarea>
+          <div class="deal-actions">
+            <button class="btn btn-primary" id="btn-approve">Approve</button>
+            <button class="btn btn-secondary" id="btn-reject">Reject</button>
+            <button class="btn btn-secondary" id="btn-manual">Manual edit</button>
+          </div>
+
+          <h3 class="deal-section-title">Vendor counteroffer</h3>
+          <div class="deal-counter-grid">
+            <input id="counter-offer-price" class="search-input" type="number" step="0.01" placeholder="Offered price">
+            <input id="counter-target-price" class="search-input" type="number" step="0.01" placeholder="Target price (optional)">
+            <button class="btn btn-primary" id="btn-counteroffer">Apply counteroffer</button>
+          </div>
+
+          <h3 class="deal-section-title">Iteration history</h3>
+          <div id="deal-history" class="deal-history">No snapshots yet.</div>
+          <div id="deal-message" class="deal-message" hidden></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="deals.js?v=2026.8"></script>
+</body>
+</html>

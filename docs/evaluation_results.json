@@ -1,0 +1,826 @@
+{
+  "generated_at": "2026-11-14T16:13:20Z",
+  "contracts": 24,
+  "llm_enabled": false,
+  "clause_type_accuracy": 1.0,
+  "redline_precision": 1.0,
+  "redline_recall": 1.0,
+  "redline_f1": 1.0,
+  "true_positives": 52,
+  "false_positives": 0,
+  "false_negatives": 0,
+  "critical_miss_rate": 0.0,
+  "latency_ms": {
+    "cold_start": 229.13,
+    "mean": 60.1,
+    "p50": 59.23,
+    "p95": 69.75
+  },
+  "status_counts": {
+    "CONVERGED": 1,
+    "DRAFT_READY": 5,
+    "AWAITING_HUMAN_REVIEW": 18
+  },
+  "llm_tokens": 0,
+  "llm_cost_usd": 0.0,
+  "rows": [
+    {
+      "contract": "contract_00.docx",
+      "expected_rules": [],
+      "actual_rules": [],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "CONVERGED",
+      "latency_ms": 229.13
+    },
+    {
+      "contract": "contract_01.docx",
+      "expected_rules": [
+        "RULE_PAY_005"
+      ],
+      "actual_rules": [
+        "RULE_PAY_005"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "DRAFT_READY",
+      "latency_ms": 59.84
+    },
+    {
+      "contract": "contract_02.docx",
+      "expected_rules": [
+        "RULE_IP_003"
+      ],
+      "actual_rules": [
+        "RULE_IP_003"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 60.08
+    },
+    {
+      "contract": "contract_03.docx",
+      "expected_rules": [
+        "RULE_IP_003",
+        "RULE_PAY_005"
+      ],
+      "actual_rules": [
+        "RULE_IP_003",
+        "RULE_PAY_005"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 57.95
+    },
+    {
+      "contract": "contract_04.docx",
+      "expected_rules": [
+        "RULE_LIAB_001"
+      ],
+      "actual_rules": [
+        "RULE_LIAB_001"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 57.25
+    },
+    {
+      "contract": "contract_05.docx",
+      "expected_rules": [
+        "RULE_LIAB_001",
+        "RULE_PAY_005"
+      ],
+      "actual_rules": [
+        "RULE_LIAB_001",
+        "RULE_PAY_005"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 57.56
+    },
+    {
+      "contract": "contract_06.docx",
+      "expected_rules": [
+        "RULE_IP_003",
+        "RULE_LIAB_001"
+      ],
+      "actual_rules": [
+        "RULE_IP_003",
+        "RULE_LIAB_001"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 59.23
+    },
+    {
+      "contract": "contract_07.docx",
+      "expected_rules": [
+        "RULE_IP_003",
+        "RULE_LIAB_001",
+        "RULE_PAY_005"
+      ],
+      "actual_rules": [
+        "RULE_IP_003",
+        "RULE_LIAB_001",
+        "RULE_PAY_005"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 69.75
+    },
+    {
+      "contract": "contract_08.docx",
+      "expected_rules": [
+        "RULE_INDEM_002"
+      ],
+      "actual_rules": [
+        "RULE_INDEM_002"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "DRAFT_READY",
+      "latency_ms": 59.32
+    },
+    {
+      "contract": "contract_09.docx",
+      "expected_rules": [
+        "RULE_INDEM_002",
+        "RULE_PAY_005"
+      ],
+      "actual_rules": [
+        "RULE_INDEM_002",
+        "RULE_PAY_005"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "DRAFT_READY",
+      "latency_ms": 58.02
+    },
+    {
+      "contract": "contract_10.docx",
+      "expected_rules": [
+        "RULE_INDEM_002",
+        "RULE_IP_003"
+      ],
+      "actual_rules": [
+        "RULE_INDEM_002",
+        "RULE_IP_003"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 56.99
+    },
+    {
+      "contract": "contract_11.docx",
+      "expected_rules": [
+        "RULE_INDEM_002",
+        "RULE_IP_003",
+        "RULE_PAY_005"
+      ],
+      "actual_rules": [
+        "RULE_INDEM_002",
+        "RULE_IP_003",
+        "RULE_PAY_005"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 59.73
+    },
+    {
+      "contract": "contract_12.docx",
+      "expected_rules": [
+        "RULE_INDEM_002",
+        "RULE_LIAB_001"
+      ],
+      "actual_rules": [
+        "RULE_INDEM_002",
+        "RULE_LIAB_001"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 71.24
+    },
+    {
+      "contract": "contract_13.docx",
+      "expected_rules": [
+        "RULE_INDEM_002",
+        "RULE_LIAB_001",
+        "RULE_PAY_005"
+      ],
+      "actual_rules": [
+        "RULE_INDEM_002",
+        "RULE_LIAB_001",
+        "RULE_PAY_005"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 59.23
+    },
+    {
+      "contract": "contract_14.docx",
+      "expected_rules": [
+        "RULE_INDEM_002",
+        "RULE_IP_003",
+        "RULE_LIAB_001"
+      ],
+      "actual_rules": [
+        "RULE_INDEM_002",
+        "RULE_IP_003",
+        "RULE_LIAB_001"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 57.93
+    },
+    {
+      "contract": "contract_15.docx",
+      "expected_rules": [
+        "RULE_INDEM_002",
+        "RULE_IP_003",
+        "RULE_LIAB_001",
+        "RULE_PAY_005"
+      ],
+      "actual_rules": [
+        "RULE_INDEM_002",
+        "RULE_IP_003",
+        "RULE_LIAB_001",
+        "RULE_PAY_005"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 61.79
+    },
+    {
+      "contract": "contract_16.docx",
+      "expected_rules": [
+        "RULE_TERM_006"
+      ],
+      "actual_rules": [
+        "RULE_TERM_006"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "DRAFT_READY",
+      "latency_ms": 60.31
+    },
+    {
+      "contract": "contract_17.docx",
+      "expected_rules": [
+        "RULE_PAY_005",
+        "RULE_TERM_006"
+      ],
+      "actual_rules": [
+        "RULE_PAY_005",
+        "RULE_TERM_006"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "DRAFT_READY",
+      "latency_ms": 60.12
+    },
+    {
+      "contract": "contract_18.docx",
+      "expected_rules": [
+        "RULE_IP_003",
+        "RULE_TERM_006"
+      ],
+      "actual_rules": [
+        "RULE_IP_003",
+        "RULE_TERM_006"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 60.86
+    },
+    {
+      "contract": "contract_19.docx",
+      "expected_rules": [
+        "RULE_IP_003",
+        "RULE_PAY_005",
+        "RULE_TERM_006"
+      ],
+      "actual_rules": [
+        "RULE_IP_003",
+        "RULE_PAY_005",
+        "RULE_TERM_006"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 59.03
+    },
+    {
+      "contract": "contract_20.docx",
+      "expected_rules": [
+        "RULE_LIAB_001",
+        "RULE_TERM_006"
+      ],
+      "actual_rules": [
+        "RULE_LIAB_001",
+        "RULE_TERM_006"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 57.14
+    },
+    {
+      "contract": "contract_21.docx",
+      "expected_rules": [
+        "RULE_LIAB_001",
+        "RULE_PAY_005",
+        "RULE_TERM_006"
+      ],
+      "actual_rules": [
+        "RULE_LIAB_001",
+        "RULE_PAY_005",
+        "RULE_TERM_006"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 58.66
+    },
+    {
+      "contract": "contract_22.docx",
+      "expected_rules": [
+        "RULE_IP_003",
+        "RULE_LIAB_001",
+        "RULE_TERM_006"
+      ],
+      "actual_rules": [
+        "RULE_IP_003",
+        "RULE_LIAB_001",
+        "RULE_TERM_006"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 57.48
+    },
+    {
+      "contract": "contract_23.docx",
+      "expected_rules": [
+        "RULE_IP_003",
+        "RULE_LIAB_001",
+        "RULE_PAY_005",
+        "RULE_TERM_006"
+      ],
+      "actual_rules": [
+        "RULE_IP_003",
+        "RULE_LIAB_001",
+        "RULE_PAY_005",
+        "RULE_TERM_006"
+      ],
+      "expected_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "actual_types": [
+        "DATA_PRIVACY_SECURITY",
+        "GOVERNING_LAW",
+        "INDEMNIFICATION",
+        "IP_RIGHTS",
+        "LIABILITY_CAP",
+        "MISCELLANEOUS",
+        "PAYMENT_TERMS",
+        "TERMINATION"
+      ],
+      "status": "AWAITING_HUMAN_REVIEW",
+      "latency_ms": 62.79
+    }
+  ]
+}

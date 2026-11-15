@@ -7,6 +7,8 @@ export interface Env {
   RESEND_API_KEY?: string;
   ENVIRONMENT?: string;
   SEND_EMAIL?: any;
+  DISPATCH_AUTH_TOKEN?: string;
+  REDLINER_WEBHOOK_TOKEN?: string;
 }
 
 export interface EmailAttachmentPayload {
@@ -24,6 +26,9 @@ export interface InboundEmailPayload {
   text_content: string;
   html_content: string;
   attachments: EmailAttachmentPayload[];
+  in_reply_to?: string;
+  references?: string[];
+  headers?: Record<string, string>;
 }
 
 export default {
@@ -70,7 +75,18 @@ export default {
       subject: subject,
       text_content: parsedEmail.text || "",
       html_content: parsedEmail.html || "",
-      attachments: attachmentsPayload
+      attachments: attachmentsPayload,
+      in_reply_to: message.headers.get("in-reply-to") || "",
+      references: (message.headers.get("references") || "")
+        .split(/\s+/)
+        .filter(Boolean),
+      headers: {
+        "message-id": messageId,
+        "in-reply-to": message.headers.get("in-reply-to") || "",
+        "references": message.headers.get("references") || "",
+        "x-redliner-deal": message.headers.get("x-redliner-deal") || "",
+        "x-gm-thrid": message.headers.get("x-gm-thrid") || ""
+      }
     };
 
     // Forward to RedLiner Core Webhook
@@ -80,7 +96,10 @@ export default {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Cloudflare-Worker": "redliner-email-worker"
+          "X-Cloudflare-Worker": "redliner-email-worker",
+          ...(env.REDLINER_WEBHOOK_TOKEN
+            ? { "X-Redliner-Webhook-Token": env.REDLINER_WEBHOOK_TOKEN }
+            : {})
         },
         body: JSON.stringify(payload)
       });
@@ -121,8 +140,22 @@ export default {
 
     if (url.pathname === "/api/send-email" && request.method === "POST") {
       try {
+        if (env.RESEND_API_KEY && !env.DISPATCH_AUTH_TOKEN) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Worker dispatch auth is not configured" }),
+            { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (env.DISPATCH_AUTH_TOKEN &&
+            request.headers.get("Authorization") !== `Bearer ${env.DISPATCH_AUTH_TOKEN}`) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Unauthorized" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
         const body: any = await request.json();
-        const { recipient_email, recipient_name, subject, html_content, text_content, attachments } = body;
+        const { recipient_email, recipient_name, subject, html_content, text_content, attachments, headers } = body;
 
         const senderEmail = env.DEFAULT_FROM_EMAIL || "negotiations@redliner.ai";
         const senderName = env.EMAIL_SENDER_NAME || "RedLiner Enterprise Procurement";
@@ -135,6 +168,10 @@ export default {
             html: html_content || text_content,
             text: text_content,
           };
+
+          if (headers && typeof headers === "object") {
+            resendPayload.headers = headers;
+          }
 
           if (attachments && attachments.length > 0) {
             resendPayload.attachments = attachments.map((a: any) => ({
@@ -153,6 +190,12 @@ export default {
           });
 
           const result = await resendResp.json();
+          if (!resendResp.ok) {
+            return new Response(
+              JSON.stringify({ success: false, provider: "resend", error: result }),
+              { status: resendResp.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
           return new Response(
             JSON.stringify({ success: true, provider: "resend", data: result }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }

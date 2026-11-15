@@ -28,6 +28,12 @@ class VendorInformationSubgraph:
         else:
             profile = self.collector.synthesize_live_osint(vendor_name_or_domain)
 
+        from services.live_osint import enrich_profile
+
+        profile = enrich_profile(profile, vendor_name_or_domain)
+        if profile.live_osint:
+            self.collector.save_vendor_to_db(profile)
+
         log_vendor_risk_audit(
             vendor_name=profile.company_name,
             domain=profile.domain,

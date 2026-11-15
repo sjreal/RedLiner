@@ -120,6 +120,17 @@ class VendorProfile(BaseModel):
     risk_tier: RiskTier = RiskTier.LOW
     flags: List[str] = Field(default_factory=list)
     notes: Optional[str] = None
+    registry_source: Optional[str] = None
+    registry_id: Optional[str] = None
+    registry_status: Optional[str] = None
+    registry_url: Optional[str] = None
+    registry_match_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    registry_match_type: Optional[str] = None
+    registry_ambiguous: bool = False
+    registry_candidates: List[Dict[str, Any]] = Field(default_factory=list)
+    web_sources: List[Dict[str, Any]] = Field(default_factory=list)
+    live_osint: bool = False
+    osint_checked_at: Optional[str] = None
 
 
 class EmailAttachment(BaseModel):
@@ -137,6 +148,9 @@ class InboundEmailWebhook(BaseModel):
     text_content: Optional[str] = ""
     html_content: Optional[str] = ""
     attachments: List[EmailAttachment] = Field(default_factory=list)
+    in_reply_to: Optional[str] = None
+    references: List[str] = Field(default_factory=list)
+    headers: Dict[str, str] = Field(default_factory=dict)
 
 
 class OutboundEmailRequest(BaseModel):
@@ -147,3 +161,26 @@ class OutboundEmailRequest(BaseModel):
     counter_proposal_body: str
     redlined_docx_filename: str
     deal_reference: Optional[str] = "REDLINER-MSA-001"
+    deal_id: Optional[str] = None
+    message_id: Optional[str] = None
+    in_reply_to: Optional[str] = None
+    references: List[str] = Field(default_factory=list)
+    headers: Dict[str, str] = Field(default_factory=dict)
+
+
+class FinanceAnalysisResult(BaseModel):
+    status: str = "complete"
+    is_approved: bool = False
+    utility_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    hard_stop_flags: List[str] = Field(default_factory=list)
+    regulatory_risk: float = Field(default=0.0, ge=0.0, le=100.0)
+    payment_terms_approved: bool = False
+
+
+class TradeoffProposalResult(BaseModel):
+    status: str = "complete"
+    proposed_price: Optional[float] = Field(default=None, ge=0.0)
+    proposed_terms: Optional[str] = None
+    normalized_utility_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    passed_guardrails: bool = False
+    tradeoff_rationale: Optional[str] = None

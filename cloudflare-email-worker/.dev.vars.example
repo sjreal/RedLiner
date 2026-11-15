@@ -1,0 +1,6 @@
+# For local Wrangler development only. Use the same dispatch token as the app .env.
+DISPATCH_AUTH_TOKEN=
+REDLINER_WEBHOOK_TOKEN=
+
+# Optional: configure this to enable real local outbound delivery through Resend.
+RESEND_API_KEY=

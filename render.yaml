@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: redliner-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENCODE_API_KEY
+        sync: false
+      - key: OPENCODE_MODEL
+        value: glm-5.3-flash
+      - key: EMAIL_PROVIDER
+        value: smtp
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: DEMO_USER
+        value: demo
+      - key: DEMO_PASSWORD
+        sync: false
+      - key: REVIEWER_EMAIL
+        sync: false
+      - key: MCP_ENABLED
+        value: "true"
+      - key: LIVE_OSINT_ENABLED
+        value: "true"
+      - key: LLM_GUARDRAILS_ENABLED
+        value: "true"
+      - key: A2A_ENABLED
+        value: "false"
+      - key: A2A_VENDOR_URL
+        sync: false
+      - key: A2A_SERVICE_TOKEN
+        sync: false
+      - key: GMAIL_POLL_ENABLED
+        value: "true"
+      - key: GMAIL_POLL_FOLDER
+        value: RedLiner
+      - key: RETENTION_DAYS
+        value: "90"
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_HOST
+        value: https://cloud.langfuse.com

@@ -92,6 +92,210 @@ Instead of waiting days for a lawyer to manually review repetitive boilerplate t
 
 ## 🏗️ System Architecture & Agent Topology
 
+### Runtime: CrewAI + Google ADK
+
+The runtime is split into two framework-native halves:
+
+- **Google ADK workflow** (`runtime/adk_runtime.py`): document parser → parallel
+  legal review + vendor intelligence → trade-off/commercial checks → approval
+  gate → review summary. ADK handles parallel branches and session state.
+- **CrewAI crew** (`runtime/crew_runtime.py`): Procurement Negotiator, Finance &
+  Compliance Reviewer and Vendor Email Writer. The crew uses OpenCode Go through
+  CrewAI's OpenAI-compatible LLM adapter and Pydantic task outputs.
+- **`MainOrchestrator`** shares the deal state between the ADK workflow and the
+  CrewAI crew. If OpenCode is unavailable, the crew is disabled and the existing
+  deterministic email template is used; if ADK unexpectedly fails, a deterministic
+  fallback pipeline preserves processing.
+
+LangGraph is no longer a runtime dependency.
+
+### MCP tools
+
+The `mcp_servers/` package exposes three real **stdio MCP servers**:
+
+- `contract_tools.py` — `parse_contract`, `file_metadata`, with a `data/` path allowlist and 25 MiB limit.
+- `vendor_tools.py` — `lookup_vendor`, `sanctions_screen`, `domain_age`.
+- `finance_tools.py` — `utility_score`, `guardrail_check`, `propose_tradeoff`.
+
+ADK’s parser and vendor nodes call the contract/vendor tools over the MCP client
+(`runtime/mcp_client.py`); CrewAI’s procurement/finance agents also receive a
+`vendor_lookup` MCP tool. Set `MCP_ENABLED=true` in `.env`.
+
+### Persistence, approvals and convergence
+
+`core/deal_store.py` persists each deal and its event history in SQLite
+(`data/redliner_deals.db`). The APIs are:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/deals` | List persisted deals |
+| `GET /api/deals/{id}` | Full deal state |
+| `GET /api/deals/{id}/events` | Approval/pipeline event history |
+| `POST /api/deals/{id}/decision` | `APPROVE`, `REJECT` or `MANUAL_EDIT` |
+| `POST /api/deals/{id}/counteroffer` | Start the next bounded iteration |
+
+Reject/manual-edit and counteroffer paths rerun the ADK + CrewAI pipeline, increment
+`iteration`, and stop at `max_iterations` with `MAX_ITERATIONS_REACHED`. Each state
+records `convergence_reason`.
+
+### Live vendor OSINT
+
+`services/live_osint.py` enriches vendor profiles with:
+
+- **GLEIF** corporate-registry lookup (keyless)
+- normalized legal-name matching that strips suffixes (`Ltd`, `Inc`, `LLC`,
+  `GmbH`, etc.) and scores similar names rather than taking the first row
+- country and legal-form disambiguation; ambiguity flag when similar entities tie
+- top candidates, match score and match type stored for human review
+- optional **Tavily** or **Serper** web search
+- keyless **DuckDuckGo HTML** fallback
+- provenance fields on `VendorProfile`: `registry_source`, `registry_id`,
+  `registry_status`, `registry_url`, `registry_match_score`,
+  `registry_match_type`, `registry_ambiguous`, `registry_candidates`,
+  `web_sources`, `osint_checked_at`
+
+Live calls are disabled in tests and can be turned off with
+`LIVE_OSINT_ENABLED=false`. Search failures degrade to the existing static vendor
+profile rather than failing a deal.
+
+### LLM guardrails
+
+`core/guardrails.py` scans input and model output for:
+
+- prompt injection and instruction override
+- secret/API-key leakage
+- abusive/threatening language
+- PII warnings (email, phone, card, SSN)
+- output size, prompt leakage and unsafe output
+
+The checks wrap direct OpenCode calls and CrewAI tasks. A blocked CrewAI output
+falls back to the deterministic email template; a blocked inbound email is marked
+`BLOCKED_BY_GUARDRAIL`. Flags are stored in `guardrail_flags`, returned by the API
+and included in `DealReport`.
+
+### Observability with Langfuse
+
+Langfuse Cloud tracing is optional and free-tier friendly. Create a project in
+[Langfuse Cloud](https://cloud.langfuse.com), copy its public/secret keys, and set:
+
+```dotenv
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://cloud.langfuse.com
+LANGFUSE_ENVIRONMENT=demo
+```
+
+Tracing is no-op when keys are absent. When enabled, RedLiner records:
+
+- deal-level ADK workflow span
+- each ADK agent node
+- CrewAI crew span
+- OpenCode generation with model, tokens and reported cost
+- MCP tool calls with redacted args and duration
+- A2A vendor tool calls
+- email drafting
+- approval and counteroffer events
+
+The trace URL is stored in the deal state and included in `DealReport`. The
+implementation never sends full contract text or inbound email bodies to
+Langfuse; inputs are metadata/counts.
+
+### Evaluation
+
+The reproducible harness is `scripts/evaluate.py`. It generates labelled contracts,
+measures clause-type accuracy, redline precision/recall/F1, critical misses,
+latency percentiles, LLM tokens and cost, and writes:
+
+```text
+docs/EVALUATION.md
+docs/evaluation_results.json
+```
+
+Default mode disables LLM/MCP/OSINT so the result is deterministic. Add
+`--with-llm` for live CrewAI usage/cost measurements.
+
+```bash
+PYTHONPATH=. uv run python scripts/evaluate.py --contracts 24
+```
+
+### Final DealReport
+
+Contract terms are extracted from the parsed clauses (price, Net terms, liability
+cap basis, initial term, SLA signal). The structured final report is available as:
+
+```text
+GET /api/deals/{id}/report?format=json
+GET /api/deals/{id}/report?format=markdown
+```
+
+The report includes the vendor profile, extracted contract terms, clauses,
+redlines, finance/tradeoff results, procurement plan, review summary, email,
+approvals, iteration history, MCP tools, runtime frameworks, trace ID and LLM
+usage. The deal workbench has a **Download report** link.
+
+### Email replies, threading and extraction
+
+- Outbound messages now carry `Message-ID`, `X-RedLiner-Deal`, and reply headers.
+- The Cloudflare Worker and Gmail IMAP poller preserve `In-Reply-To`, `References`,
+  `X-RedLiner-Deal`, and Gmail thread hints.
+- Sent messages are stored in `outbound_messages`; inbound replies are matched
+  back to a deal instead of creating a second deal.
+- `core/counteroffer.py` extracts price, Net terms and liability caps
+  deterministically; low-confidence replies become human-review items instead of
+  inventing terms.
+
+### A2A interoperability
+
+`a2a_servers/vendor_agent.py` exposes an ADK Vendor Intelligence agent using the
+A2A protocol. `runtime/a2a_tools.py` is a CrewAI tool that calls the remote agent.
+Start the server and opt in:
+
+```bash
+PYTHONPATH=. uv run python -m uvicorn a2a_servers.vendor_agent:app --port 8001
+# .env
+A2A_ENABLED=true
+A2A_VENDOR_URL=http://127.0.0.1:8001
+```
+
+### ADK LoopAgent and workbench
+
+The ADK workflow contains an explicit bounded `LoopAgent` for commercial
+concession rounds. The browser review workbench is at `/deals.html`; it exposes:
+
+- deal list with risk, utility, iteration, token/cost summary and status
+- deal-scoped email preview and dispatch
+- DOCX and JSON/Markdown report downloads
+- contract clauses and proposed redlines
+- approve / reject / manual-edit with optional edited-clause JSON
+- vendor counteroffer form and recorded extraction
+- immutable iteration snapshots and audit events
+- Langfuse trace link
+- effective demo settings (model, email provider, MCP, OSINT, guardrails,
+  Langfuse, A2A, Gmail poller, database, demo auth)
+
+`REVIEWER_EMAIL` and `REVIEWER_WEBHOOK_URL` enable reviewer notifications.
+The shared Basic Auth gate protects the workbench and APIs.
+
+### PostgreSQL/Supabase and retention
+
+Set `DATABASE_URL` to use `PostgresDealRepository` instead of SQLite; Supabase
+connection strings work. Retention is configurable with `RETENTION_DAYS` and
+`scripts/purge_retention.py` (add `--artifacts` to remove old generated files).
+
+### Demo authentication
+
+This is intentionally YAGNI: one shared Basic Auth login, not Supabase Auth, MFA,
+roles or RLS.
+
+```dotenv
+DEMO_USER=demo
+DEMO_PASSWORD=a-long-demo-password
+```
+
+If `DEMO_PASSWORD` is blank, auth is disabled for local development. In the
+hosted demo it must be set. `/api/health` stays public; the webhook and A2A
+service use their own tokens.
+
 The RedLiner architecture strictly follows Section 5 of the project synopsis (`AG_AI_Project_Synopsis_Grp_8.pdf`):
 
 ```mermaid
@@ -380,14 +584,21 @@ RedLiner/
 │
 ├── core/                              # Shared Pydantic schemas & state models
 │   ├── models.py                      # Typed Clause, RedlineAction, VendorProfile
-│   └── state.py                       # LangGraph NegotiationDealState schema
+│   └── state.py                       # Shared NegotiationDealState schema
 │
 ├── agents/                            # Core Agents (Section 5.1 & 5.2 in PDF)
-│   ├── orchestrator.py                # 1) Main Orchestrator (supervisor / state manager)
+│   ├── orchestrator.py                # 1) Main Orchestrator (shared state facade)
 │   ├── procurement_negotiator.py      # 2.a) Procurement Negotiator
 │   ├── legal_redliner.py              # 2.b) Legal Redliner Agent
 │   ├── finance_compliance_risk.py     # 2.c) Finance, Compliance & Risk Agent
 │   ├── vendor_intelligence.py         # 2.d) Vendor Intelligence Agent
+│
+├── runtime/                           # CrewAI + Google ADK runtime
+│   ├── adk_runtime.py                 # ADK sequential/parallel workflow
+│   ├── crew_runtime.py                # CrewAI procurement/finance/email crew
+│   ├── pipeline.py                    # Shared deterministic tools and fallback
+│   ├── llm.py                         # OpenCode adapters for both frameworks
+│   └── schemas.py                     # CrewAI Pydantic task outputs
 │   └── email_writer.py                # 2.e) Email Writer Agent
 │
 ├── subgraphs/                         # Cognitive Subgraphs (Section 5.3 in PDF)
@@ -448,9 +659,12 @@ RedLiner/
 | **Redline Engine** | Native Word OpenXML | ✅ Implemented (`<w:del>`, `<w:ins>`, `<w:comment>`) | Table and embedded image redlining |
 | **Vendor Intelligence**| OSINT & Risk Database | ✅ Implemented (SQLite 52-vendor database + OSINT) | Live API integrations (D&B, OpenCorporates) |
 | **Tradeoff Engine** | Utility Scoring Module | ✅ Implemented (Deterministic Python math engine) | Multi-turn reinforcement learning policy |
-| **HITL** | Human Approval Gate | ✅ Implemented (Threshold-based pause & decision flow) | In-dashboard clause re-writing workbench |
-| **State Persistence** | Thread Checkpoints | ✅ In-memory negotiation state schema | Supabase PostgreSQL & Langfuse telemetry |
-| **Multi-Agent Runtime**| Graph Execution | ✅ Python-native orchestrator & subgraphs | Full LangGraph compiled cyclic state graph |
+| **Email Drafting** | CrewAI + OpenCode | ✅ CrewAI procurement/finance/email crew with Pydantic outputs; template fallback | Human-reviewed prompt and provider evaluation |
+| **MCP Tools** | Contract + vendor + finance | ✅ Real stdio MCP servers; ADK parse/vendor calls + CrewAI vendor tool | Hosted MCP with auth/rate limits |
+| **HITL** | Approval + resume | ✅ SQLite-backed approve/reject/manual edit and feedback loop | Dashboard approval workbench |
+| **State Persistence** | SQLite/Postgres | ✅ Deals, events, snapshots and outbound messages persisted; `/api/deals` APIs | Supabase Storage and production retention jobs |
+| **Multi-Agent Runtime**| CrewAI + ADK | ✅ ADK workflow + CrewAI crew + A2A vendor bridge | Hosted production scaling |
+| **Observability** | Langfuse Cloud | ✅ Deal, ADK/CrewAI, LLM, MCP, A2A, approval traces and trace URLs | Hosted dashboards/alerts |
 | **UI Dashboard** | Web Interface | ✅ Single-page responsive app (Zapier style) | React + TypeScript enterprise portal |
 
 ---
@@ -467,34 +681,124 @@ RedLiner/
 git clone https://github.com/DivyamJoshi2005/RedLiner.git
 cd RedLiner
 
-# Run the automated launch script (initializes venv, installs dependencies, starts server)
+# Set up the Python environment, create local configuration, then start the server
+uv sync --python 3.12
+test -f .env || cp .env.example .env
+# Edit .env and add your OpenCode key and shared Cloudflare dispatch token.
 ./run.sh
 ```
 
 ### Option 2: Manual Setup
 ```bash
-# 1. Create a virtual environment with uv or python3
-uv venv .venv
-source .venv/bin/activate
+# 1. Create/sync the Python 3.12 environment from pyproject.toml
+uv sync --python 3.12
 
-# 2. Install dependencies
-uv pip install fastapi uvicorn pydantic python-docx lxml pypdf pyyaml requests httpx pytest python-multipart reportlab pillow
+# 2. Create your local environment file and edit in your secrets
+cp .env.example .env
+${EDITOR:-nano} .env
 
-# 3. Start the server
-PYTHONPATH=. .venv/bin/uvicorn server.app:app --host 127.0.0.1 --port 8000 --reload
+# 3. Start the API and dashboard
+PYTHONPATH=. uv run python -m uvicorn server.app:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 Once started, navigate to **`http://127.0.0.1:8000`** in your browser to view the RedLiner control panel.
 
-### 🧪 Running the Automated Test Suite
-To verify the entire agentic pipeline, run the 10 automated integration tests:
+### OpenCode Go LLM + Direct SMTP + Cloudflare inbound email
+`.env` is loaded by the Python app. Set your OpenCode Console key there; keep the
+file local and never commit it. Direct SMTP is the outbound default:
+
+```dotenv
+OPENCODE_API_KEY=your-opencode-console-key
+OPENCODE_MODEL=glm-5.3-flash
+EMAIL_PROVIDER=smtp
+SMTP_USER=your.address@gmail.com
+SMTP_PASSWORD=your-google-app-password
+SMTP_FROM=your.address@gmail.com
+
+# Set this in production so only the Worker can call the inbound webhook.
+REDLINER_WEBHOOK_TOKEN=a-long-random-value
+MCP_ENABLED=true
+LIVE_OSINT_ENABLED=true
+LLM_GUARDRAILS_ENABLED=true
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+LANGFUSE_HOST=https://cloud.langfuse.com
+A2A_ENABLED=false
+A2A_VENDOR_URL=http://127.0.0.1:8001
+RETENTION_DAYS=90
+# DATABASE_URL=postgresql://user:password@host:5432/postgres
+REVIEWER_EMAIL=
+```
+
+Use a Gmail **App Password**, and make `SMTP_FROM` match the authenticated Gmail
+address (or a verified “Send mail as” alias). For a different SMTP provider,
+enter its host, port, username and password in the dashboard.
+
+The Cloudflare Worker is still used for **inbound mail**. It posts Cloudflare
+Email Routing events to `http://localhost:8000/api/webhook/email` (configured in
+`wrangler.toml`). For a deployed Worker, change `REDLINER_WEBHOOK_URL` there to
+the publicly reachable backend URL before deploying, set
+`REDLINER_WEBHOOK_TOKEN` with `npx wrangler secret put ...`, and configure
+Email Routing to send to the Worker.
+
+For local Worker development:
 
 ```bash
-PYTHONPATH=. .venv/bin/pytest tests/test_redliner_core.py -v
+cd cloudflare-email-worker
+test -f .dev.vars || cp .dev.vars.example .dev.vars
+# REDLINER_WEBHOOK_TOKEN must match ../.env when webhook auth is enabled.
+npm ci
+npm run dev
+```
+
+The Worker’s optional outbound Resend route is separate from Direct SMTP. If you
+use it, set `EMAIL_PROVIDER=cloudflare`, `CLOUDFLARE_WORKER_URL`,
+`CLOUDFLARE_DISPATCH_TOKEN` in the backend, and `DISPATCH_AUTH_TOKEN` plus
+`RESEND_API_KEY` in the Worker. Otherwise, outbound mail goes directly through
+SMTP and the Worker only handles inbound messages.
+
+Without an OpenCode key, the deterministic email draft template is used. Without
+a Resend key, the Worker’s outbound route returns a mock receipt, not a real
+delivered email. For a YAGNI hosted demo with nothing running locally (Render or AWS Lightsail +
+Supabase + hosted Gmail polling + Basic Auth), see
+[`docs/HOSTED_DEMO.md`](docs/HOSTED_DEMO.md) and
+[`deploy/README.md`](deploy/README.md). For the fuller Render + Cloudflare
+Email Routing setup, including inbound mail, secrets, and troubleshooting, see
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+If you do **not** own a Cloudflare domain, use the Gmail IMAP poller instead; no
+domain or inbound webhook is required:
+
+```bash
+# Watch a Gmail label named RedLiner (create a filter that labels contract mail)
+PYTHONPATH=. uv run python scripts/gmail_inbox_poller.py --interval 60
+```
+
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#no-domain-alternative-poll-gmail-over-imap)
+for the label/filter setup. See
+[`docs/MILESTONE_40.md`](docs/MILESTONE_40.md) for workflow details, guardrails,
+trace output, and the remaining rubric gaps.
+
+### 🧪 Running the Automated Test Suite
+To verify the entire agentic pipeline, run all 62 tests:
+
+```bash
+PYTHONPATH=. uv run pytest -q
 ```
 
 **Test Suite Coverage:**
-* `test_health_check_architecture` — Verifies all 6 agents and 5 subgraphs are registered online.
+* `test_health_check_architecture` — Verifies agents, subgraphs and the CrewAI + ADK runtime are registered online.
+* `test_framework_runtime` — Runs the ADK workflow and verifies the shared runtime state; checks CrewAI's safe disabled path.
+* `test_mcp_and_hitl` — Calls all three MCP servers, runs ADK over MCP, persists deals, and exercises approval/reject/counteroffer/max-iteration APIs.
+* `test_a2a` — Starts the ADK A2A server and calls it through the CrewAI A2A tool.
+* `test_counteroffer_email` — Verifies outbound message identity, reply matching, extraction and low-confidence review.
+* `test_storage` / `test_notifications` — Verifies SQLite factory/retention, outbound lookup and reviewer notifications.
+* `test_demo_auth` — Verifies the shared demo Basic Auth gate and public health endpoint.
+* `test_report` — Verifies contract-term extraction and JSON/Markdown DealReport output.
+* `test_live_osint` / `test_gleif_matching` / `test_guardrails` — Verifies GLEIF fuzzy matching, web provenance and input/output LLM guardrails.
+* `test_tracing` — Verifies Langfuse is safely disabled without keys.
+* `test_failures` — Verifies unsupported files, invalid decisions and missing deals fail cleanly.
+* `scripts/evaluate.py` — Produces `docs/EVALUATION.md` and raw `evaluation_results.json`.
 * `test_subgraph_document_parser` — Validates DOCX and PDF clause segmentation across standard clause types.
 * `test_subgraph_playbook_matcher_and_parallel_checks` — Verifies parallel checks and native OpenXML tracked changes.
 * `test_subgraph_vendor_information` — Verifies low-risk, OFAC-blocked, and unknown OSINT vendor screening.
@@ -512,6 +816,7 @@ PYTHONPATH=. .venv/bin/pytest tests/test_redliner_core.py -v
 | Endpoint | Method | Description |
 | :--- | :--- | :--- |
 | `/api/health` | `GET` | Health check returning online agent and subgraph architecture status. |
+| `/api/settings` | `GET` | Non-secret effective demo settings (model, email, MCP, OSINT, tracing, DB). |
 | `/api/parser/parse` | `POST` | Ingests a contract file or sample name and returns indexed `Clause` objects. |
 | `/api/redliner/redline` | `POST` | Executes parallel policy audits and produces a native Word `.docx` with tracked changes. |
 | `/api/playbook` | `GET` | Returns active corporate legal playbook configuration and all policy rules. |
@@ -523,7 +828,13 @@ PYTHONPATH=. .venv/bin/pytest tests/test_redliner_core.py -v
 | `/api/vendor/profile` | `GET` | Returns full OSINT intelligence, risk score (0-100), and sanctions status for a vendor. |
 | `/api/vendor/stats` | `GET` | Returns live counterparty breakdown (total, low risk, medium, high/critical). |
 | `/api/tradeoff/evaluate` | `POST` | Calculates normalized utility scores for commercial price vs. payment terms trade-offs. |
-| `/api/approval/decide` | `POST` | Submits human decision (`APPROVE`, `REJECT`, `MANUAL_EDIT`) to resume execution. |
+| `/api/deals` | `GET` | Lists persisted deals and their current status. |
+| `/api/deals/{id}` | `GET` | Returns the full persisted deal state. |
+| `/api/deals/{id}/events` | `GET` | Returns the audit/event stream. |
+| `/api/deals/{id}/history` | `GET` | Returns immutable iteration snapshots. |
+| `/api/deals/{id}/report` | `GET` | Returns the final structured JSON report or `format=markdown`. |
+| `/api/deals/{id}/decision` | `POST` | Submits `APPROVE`, `REJECT` or `MANUAL_EDIT`; reject/edit starts the next iteration. |
+| `/api/deals/{id}/counteroffer` | `POST` | Applies vendor terms and starts the next bounded iteration. |
 | `/api/email/dispatch-counter-proposal` | `POST` | Generates counter-proposal email and dispatches it with the redlined document. |
 | `/api/email/config` | `GET`, `POST` | Configures and tests direct SMTP or Resend credentials for live Internet delivery. |
 | `/api/webhook/email` | `POST` | Inbound webhook for Cloudflare Email Routing; triggers the entire negotiation workflow. |

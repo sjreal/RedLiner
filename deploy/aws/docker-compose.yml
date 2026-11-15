@@ -1,0 +1,46 @@
+services:
+  backend:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      A2A_VENDOR_URL: http://${PUBLIC_HOST:?set PUBLIC_HOST}:8001
+      A2A_ENABLED: "true"
+      GMAIL_POLL_ENABLED: "true"
+      GMAIL_POLL_FOLDER: RedLiner
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  a2a:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      A2A_HOST: ${PUBLIC_HOST:?set PUBLIC_HOST}
+      A2A_PORT: "8001"
+      A2A_PROTOCOL: http
+    command:
+      - .venv/bin/uvicorn
+      - a2a_servers.vendor_agent:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+    ports:
+      - "8001:8001"
+    restart: unless-stopped

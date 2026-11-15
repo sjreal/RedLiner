@@ -821,6 +821,7 @@ function initEmailDispatcher() {
         document.getElementById("outbound-vendor-name").value = data.vendor_screened || "Vendor";
         document.getElementById("outbound-recipient-email").value = fromEmail;
         document.getElementById("outbound-contract-file").value = data.redlined_docx_filename || contractSelect;
+        document.getElementById("outbound-deal-id").value = data.deal_id || "";
         document.getElementById("outbound-body-preview").value = data.counter_proposal_email.counter_proposal_body;
       }
 
@@ -850,7 +851,8 @@ function initEmailDispatcher() {
       contract_filename: contractFile,
       vendor_name: vendorName,
       recipient_email: recipientEmail,
-      recipient_name: "Vendor Legal Counsel"
+      recipient_name: "Vendor Legal Counsel",
+      deal_id: document.getElementById("outbound-deal-id").value.trim() || null
     };
 
     const btn = document.getElementById("btn-send-counter-email");

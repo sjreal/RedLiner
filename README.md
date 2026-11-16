@@ -257,6 +257,10 @@ A2A_ENABLED=true
 A2A_VENDOR_URL=http://127.0.0.1:8001
 ```
 
+Check it from the dashboard → **Email** → **A2A vendor agent** → **Check A2A
+connection**. The card calls `GET /api/a2a/status` and probes the agent card
+instead of only reading the environment flag.
+
 ### ADK LoopAgent and workbench
 
 The ADK workflow contains an explicit bounded `LoopAgent` for commercial
@@ -718,7 +722,7 @@ Live OSINT, guardrails, Langfuse, A2A, Gmail polling and demo auth — see
 
 ```bash
 PYTHONPATH=. uv run python scripts/check_config.py
-# optional: probe the A2A agent card
+# optional: probe A2A and Postgres connectivity
 PYTHONPATH=. uv run python scripts/check_config.py --network
 ```
 
@@ -791,7 +795,7 @@ for the label/filter setup. See
 trace output, and the remaining rubric gaps.
 
 ### 🧪 Running the Automated Test Suite
-To verify the entire agentic pipeline, run all 73 tests:
+To verify the entire agentic pipeline, run all 78 tests:
 
 ```bash
 PYTHONPATH=. uv run pytest -q

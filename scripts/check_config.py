@@ -61,6 +61,20 @@ def _network_check(url: str, token: str = "") -> Tuple[bool, str]:
         return False, f"{type(exc).__name__}"
 
 
+
+def _postgres_check(dsn: str) -> Tuple[bool, str]:
+    try:
+        from psycopg import connect
+
+        with connect(dsn, connect_timeout=3) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+        return True, "SELECT 1 ok"
+    except Exception as exc:
+        return False, f"{type(exc).__name__}: {str(exc)[:120]}"
+
+
 def build_rows(network: bool) -> List[Tuple[str, str, str, str]]:
     rows: List[Tuple[str, str, str, str]] = []
 
@@ -90,7 +104,14 @@ def build_rows(network: bool) -> List[Tuple[str, str, str, str]]:
     # Database
     database_url = _value("DATABASE_URL")
     if database_url:
-        rows.append(("Database", "postgres", "ready", "DATABASE_URL is set"))
+        if network:
+            ok, detail = _postgres_check(database_url)
+            state = "ready (connected)" if ok else "unreachable"
+            detail = "DATABASE_URL connected" if ok else detail
+        else:
+            state = "ready (not probed)"
+            detail = "DATABASE_URL is set"
+        rows.append(("Database", "postgres", state, detail))
     else:
         path = _value("REDLINER_DB_PATH", "data/redliner_deals.db")
         rows.append(("Database", "sqlite", "ready", path))
@@ -211,7 +232,7 @@ def main() -> int:
     parser.add_argument(
         "--network",
         action="store_true",
-        help="Probe the A2A agent card in addition to checking configuration.",
+        help="Probe the A2A agent card and Postgres connection.",
     )
     args = parser.parse_args()
 
@@ -230,7 +251,7 @@ def main() -> int:
     for row in rows:
         print(line(row))
 
-    failures = [row for row in rows if row[2].startswith("missing")]
+    failures = [row for row in rows if row[2].startswith(("missing", "unreachable"))]
     if failures:
         print()
         for service, _, state, _ in failures:

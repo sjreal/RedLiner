@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initVendorRadar();
   initEmailDispatcher();
   initSampleMailer();
+  initA2AStatus();
   initHelpersAudit();
 
   // Load defaults on boot
@@ -707,6 +708,56 @@ async function promptNewVendorAssessment() {
 }
 
 // ---------------- 4. Cloudflare Email Dispatcher & Delivery Settings ----------------
+function initA2AStatus() {
+  const chip = document.getElementById("a2a-status-chip");
+  const detail = document.getElementById("a2a-status-detail");
+  const button = document.getElementById("btn-check-a2a");
+  if (!chip || !detail || !button) return;
+
+  const setStatus = (label, className, text) => {
+    chip.textContent = label;
+    chip.className = `status-chip ${className}`.trim();
+    detail.textContent = text || "";
+  };
+
+  async function checkA2A() {
+    button.disabled = true;
+    button.textContent = "Checking…";
+    setStatus("Checking", "warning", "Contacting the A2A agent card…");
+    try {
+      const res = await fetch(`/api/a2a/status?_=${Date.now()}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      if (!data.enabled) {
+        setStatus(
+          "Disabled",
+          "warning",
+          "A2A_ENABLED is false in .env. Enable it and restart the backend."
+        );
+      } else if (data.reachable) {
+        setStatus(
+          "Reachable",
+          "success",
+          `${data.agent_name || "A2A agent"} · ${data.url}${data.status_code ? ` · HTTP ${data.status_code}` : ""}`
+        );
+      } else {
+        setStatus(
+          "Unreachable",
+          "danger",
+          `${data.error || "No response"} · ${data.url}. Start the A2A service and check A2A_SERVICE_TOKEN.`
+        );
+      }
+    } catch (err) {
+      setStatus("Check failed", "danger", err.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = "Check A2A connection";
+    }
+  }
+
+  button.addEventListener("click", checkA2A);
+}
+
 function initSampleMailer() {
   const select = document.getElementById("sample-contract-select");
   const recipient = document.getElementById("sample-recipient");

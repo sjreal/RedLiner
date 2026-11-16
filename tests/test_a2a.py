@@ -8,8 +8,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import httpx
+from fastapi.testclient import TestClient
 
 from runtime.a2a_tools import A2AVendorTool
+from server.app import app
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -63,6 +65,7 @@ def test_a2a_server_card_and_crewai_client():
         with patch.dict(
             os.environ,
             {
+                "A2A_ENABLED": "true",
                 "A2A_VENDOR_URL": base_url,
                 "A2A_TIMEOUT_SECONDS": "20",
                 "A2A_SERVICE_TOKEN": "test-a2a-token",
@@ -71,11 +74,34 @@ def test_a2a_server_card_and_crewai_client():
             result = json.loads(
                 A2AVendorTool()._run("ApexCloud Enterprise Ltd")
             )
+            status = TestClient(app).get("/api/a2a/status").json()
         assert result["risk_tier"] == "LOW"
         assert result["sanction_pep_status"] == "CLEARED"
+        assert status["enabled"] is True
+        assert status["reachable"] is True
+        assert status["agent_name"] == "vendor_intelligence"
     finally:
         process.terminate()
         try:
             process.wait(timeout=10)
         except subprocess.TimeoutExpired:
             process.kill()
+
+
+def test_a2a_status_disabled(monkeypatch):
+    monkeypatch.setenv("A2A_ENABLED", "false")
+    data = TestClient(app).get("/api/a2a/status").json()
+    assert data["enabled"] is False
+    assert data["reachable"] is False
+    assert data["status"] == "disabled"
+
+
+def test_a2a_status_unreachable(monkeypatch):
+    monkeypatch.setenv("A2A_ENABLED", "true")
+    monkeypatch.setenv("A2A_VENDOR_URL", f"http://127.0.0.1:{_free_port()}")
+    monkeypatch.setenv("A2A_SERVICE_TOKEN", "test-token")
+    monkeypatch.setenv("A2A_TIMEOUT_SECONDS", "2")
+    data = TestClient(app).get("/api/a2a/status").json()
+    assert data["enabled"] is True
+    assert data["reachable"] is False
+    assert data["error"]

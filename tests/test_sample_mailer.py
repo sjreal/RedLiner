@@ -13,6 +13,9 @@ def test_sample_list_includes_fixtures():
     samples = response.json()["samples"]
     assert "sample_clean_saas_agreement.docx" in samples
     assert "sample_unfavorable_saas_agreement.docx" in samples
+    assert "sample_medium_risk_saas_agreement.docx" in samples
+    assert "sample_professional_services_agreement.docx" in samples
+    assert "sample_data_processing_addendum.docx" in samples
 
 
 def test_send_sample_endpoint(monkeypatch):

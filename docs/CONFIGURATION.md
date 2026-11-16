@@ -262,11 +262,15 @@ The app normalizes `postgres://` and `postgresql+psycopg://` forms.
 
 ```bash
 curl -u demo:PASS http://127.0.0.1:8000/api/settings
+
+# Also probes the actual Postgres connection.
+PYTHONPATH=. uv run python scripts/check_config.py --network
 ```
 
 For SQLite, the file appears at `data/redliner_deals.db` (or `REDLINER_DB_PATH`).
 For Supabase, use the pooled connection string if the direct connection is
-restricted.
+restricted. The `--network` check reports `ready (connected)` or `unreachable`
+with the connection error.
 
 **Troubleshooting**
 
@@ -492,6 +496,19 @@ curl -H "Authorization: Bearer $A2A_SERVICE_TOKEN" \
 Then run a deal and confirm `a2a.vendor_intelligence` appears in the traces and
 the deal metadata.
 
+**Check from the frontend**
+
+Open the dashboard → **Email** tab → **A2A vendor agent** → **Check A2A connection**.
+The card calls:
+
+```text
+GET /api/a2a/status
+```
+
+It shows **Reachable** with the agent name, **Unreachable** with the error, or
+**Disabled** when `A2A_ENABLED=false`. This probes the actual agent card, so it is
+stronger than reading the environment flag from `/api/settings`.
+
 **Hosted**
 
 - AWS Compose: `deploy/aws/docker-compose.yml` starts both containers and sets
@@ -549,15 +566,23 @@ has the Gmail user and App Password.
 
 ### Sending a sample contract to the poller
 
-Two test fixtures are included:
+Five test fixtures are included:
 
 ```text
 data/sample_contracts/sample_clean_saas_agreement.docx
+data/sample_contracts/sample_medium_risk_saas_agreement.docx
+data/sample_contracts/sample_professional_services_agreement.docx
+data/sample_contracts/sample_data_processing_addendum.docx
 data/sample_contracts/sample_unfavorable_saas_agreement.docx
 ```
 
-The clean sample should converge with zero redlines. The unfavorable sample
-should produce seven redlines and pause for human review.
+| Sample | Expected result |
+|---|---|
+| `sample_clean_saas_agreement.docx` | Converged, 0 redlines |
+| `sample_medium_risk_saas_agreement.docx` | 3 findings: payment, termination, privacy |
+| `sample_professional_services_agreement.docx` | 2 findings: payment, governing law |
+| `sample_data_processing_addendum.docx` | 6 findings, at least one critical |
+| `sample_unfavorable_saas_agreement.docx` | 7 findings, human review |
 
 Send one to the address configured in `data/email_config.json` from the dashboard’s
 **Send sample contracts** card, or from the CLI:

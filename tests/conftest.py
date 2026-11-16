@@ -17,6 +17,12 @@ os.environ["LIVE_OSINT_ENABLED"] = "false"
 # Keep local .env demo credentials from turning Basic Auth on for API tests.
 os.environ["DEMO_USER"] = "demo"
 os.environ["DEMO_PASSWORD"] = ""
+# Keep tests on the temporary SQLite database even if the local .env points at
+# Supabase/Postgres or enables network integrations.
+os.environ["DATABASE_URL"] = ""
+os.environ["A2A_ENABLED"] = "false"
+os.environ["LANGFUSE_TRACING_ENABLED"] = "false"
+os.environ["GMAIL_POLL_ENABLED"] = "false"
 os.environ["REDLINER_DB_PATH"] = str(
     Path(tempfile.mkdtemp(prefix="redliner-tests-")) / "deals.db"
 )

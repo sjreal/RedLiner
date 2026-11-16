@@ -394,6 +394,9 @@
                   <option value="vendor_saas_agreement.docx">vendor_saas_agreement.docx (Standard SaaS Draft)</option>
                   <option value="vendor_saas_agreement.pdf">vendor_saas_agreement.pdf (Digital PDF Draft)</option>
                   <option value="sample_clean_saas_agreement.docx">sample_clean_saas_agreement.docx (Passes playbook)</option>
+                  <option value="sample_medium_risk_saas_agreement.docx">sample_medium_risk_saas_agreement.docx (3 findings)</option>
+                  <option value="sample_professional_services_agreement.docx">sample_professional_services_agreement.docx (2 findings)</option>
+                  <option value="sample_data_processing_addendum.docx">sample_data_processing_addendum.docx (6 findings, critical)</option>
                   <option value="sample_unfavorable_saas_agreement.docx">sample_unfavorable_saas_agreement.docx (7 violations)</option>
                 </select>
               </div>
@@ -512,6 +515,23 @@
                 <button type="button" class="btn btn-secondary" id="btn-retry-samples" hidden>Retry sample list</button>
               </div>
               <p id="sample-send-status" class="card-desc"></p>
+            </div>
+          </div>
+
+          <!-- A2A Vendor Agent Status -->
+          <div class="card" style="margin-top: 16px;">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">🔗 A2A vendor agent</h2>
+                <p class="card-desc">Verify the separate ADK agent is reachable.</p>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <span id="a2a-status-chip" class="status-chip">Not checked</span>
+              <p id="a2a-status-detail" class="card-desc">Start the A2A service, then click check.</p>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary" id="btn-check-a2a">Check A2A connection</button>
+              </div>
             </div>
           </div>
         </div>
@@ -635,6 +655,6 @@
   </div>
 
   <script src="llm_stream.js?v=2026.9"></script>
-  <script src="app.js?v=2026.10"></script>
+  <script src="app.js?v=2026.11"></script>
 </body>
 </html>

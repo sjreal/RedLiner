@@ -4,6 +4,8 @@ import os
 import secrets
 import shutil
 import yaml
+
+import httpx
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -179,6 +181,68 @@ def get_settings():
         "gmail_poll_enabled": os.environ.get("GMAIL_POLL_ENABLED", "false").lower()
         in {"1", "true", "yes", "on"},
     }
+
+
+@app.get("/api/a2a/status")
+def get_a2a_status():
+    """Probe the configured A2A vendor agent card without exposing the token."""
+    enabled = os.environ.get("A2A_ENABLED", "false").lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    url = os.environ.get("A2A_VENDOR_URL", "http://127.0.0.1:8001").rstrip("/")
+    token = os.environ.get("A2A_SERVICE_TOKEN", "").strip()
+    if not enabled:
+        return {
+            "enabled": False,
+            "reachable": False,
+            "url": url,
+            "token_configured": bool(token),
+            "status": "disabled",
+            "error": None,
+        }
+
+    try:
+        timeout = float(os.environ.get("A2A_TIMEOUT_SECONDS", "5"))
+    except ValueError:
+        timeout = 5.0
+    timeout = max(2.0, min(timeout, 15.0))
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    try:
+        response = httpx.get(
+            f"{url}/.well-known/agent-card.json",
+            headers=headers,
+            timeout=timeout,
+        )
+        card: Dict[str, Any] = {}
+        if response.status_code == 200:
+            try:
+                card = response.json()
+            except ValueError:
+                card = {}
+        return {
+            "enabled": True,
+            "reachable": response.status_code == 200,
+            "url": url,
+            "status_code": response.status_code,
+            "agent_name": card.get("name"),
+            "agent_description": card.get("description"),
+            "token_configured": bool(token),
+            "status": "reachable" if response.status_code == 200 else "unreachable",
+            "error": None if response.status_code == 200 else f"HTTP {response.status_code}",
+        }
+    except Exception as exc:
+        return {
+            "enabled": True,
+            "reachable": False,
+            "url": url,
+            "status_code": None,
+            "token_configured": bool(token),
+            "status": "unreachable",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
 
 
 @app.post("/api/parser/parse")

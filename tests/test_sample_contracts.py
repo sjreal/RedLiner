@@ -37,3 +37,31 @@ def test_unfavorable_sample_triggers_playbook(tmp_path):
         "RULE_LAW_004",
     }
     assert result.critical_count >= 2
+
+
+def test_medium_risk_sample_triggers_mixed_findings(tmp_path):
+    result = _redline("sample_medium_risk_saas_agreement.docx", tmp_path)
+    rule_ids = {action.rule_id for action in result.actions}
+    assert rule_ids == {"RULE_PAY_005", "RULE_TERM_006", "RULE_PRIV_007"}
+    assert result.critical_count == 0
+
+
+def test_services_sample_triggers_payment_and_law(tmp_path):
+    result = _redline("sample_professional_services_agreement.docx", tmp_path)
+    rule_ids = {action.rule_id for action in result.actions}
+    assert rule_ids == {"RULE_PAY_005", "RULE_LAW_004"}
+    assert result.critical_count == 0
+
+
+def test_dpa_sample_triggers_multiple_critical_findings(tmp_path):
+    result = _redline("sample_data_processing_addendum.docx", tmp_path)
+    rule_ids = {action.rule_id for action in result.actions}
+    assert rule_ids == {
+        "RULE_PAY_005",
+        "RULE_PRIV_007",
+        "RULE_LIAB_001",
+        "RULE_INDEM_002",
+        "RULE_TERM_006",
+        "RULE_LAW_004",
+    }
+    assert result.critical_count >= 1

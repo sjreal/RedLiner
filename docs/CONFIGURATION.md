@@ -573,26 +573,26 @@ has the Gmail user and App Password.
 
 ### Sending a sample contract to the poller
 
-Five test fixtures are included:
+Seven source fixtures are included. See
+[`data/sample_contracts/README.md`](../data/sample_contracts/README.md) for
+pricing, expected results and attribution.
 
-```text
-data/sample_contracts/sample_clean_saas_agreement.docx
-data/sample_contracts/sample_medium_risk_saas_agreement.docx
-data/sample_contracts/sample_professional_services_agreement.docx
-data/sample_contracts/sample_data_processing_addendum.docx
-data/sample_contracts/sample_unfavorable_saas_agreement.docx
-```
+| Sample | Price | Expected result |
+|---|---:|---|
+| `sample_clean_saas_agreement.docx` | $120,000 | Converged, 0 redlines |
+| `sample_medium_risk_saas_agreement.docx` | $120,000 | 3 findings: payment, termination, privacy |
+| `sample_professional_services_agreement.docx` | $120,000 | 2 findings: payment, governing law |
+| `sample_data_processing_addendum.docx` | $120,000 | 6 findings, at least one critical |
+| `sample_unfavorable_saas_agreement.docx` | $120,000 | 7 findings, human review |
+| `sample_commonpaper_cloud_service_agreement.docx` | $150,000 | Converged, 0 redlines |
+| `sample_acc_cooley_style_saas_agreement.docx` | $240,000 | 4 findings |
 
-| Sample | Expected result |
-|---|---|
-| `sample_clean_saas_agreement.docx` | Converged, 0 redlines |
-| `sample_medium_risk_saas_agreement.docx` | 3 findings: payment, termination, privacy |
-| `sample_professional_services_agreement.docx` | 2 findings: payment, governing law |
-| `sample_data_processing_addendum.docx` | 6 findings, at least one critical |
-| `sample_unfavorable_saas_agreement.docx` | 7 findings, human review |
+The Common Paper-inspired sample is adapted under CC BY 4.0 with attribution in
+the document footer and the fixture README. The ACC/Cooley-inspired sample uses
+original text with structural inspiration only.
 
-Each sample includes a `$120,000` annual fee. The default target is 10% below
-that offer, so the utility score is populated instead of showing `N/A`.
+The default target is 10% below the offer, so the utility score is populated
+instead of showing `N/A`.
 
 Send one to the address configured in `data/email_config.json` from the dashboard’s
 **Send sample contracts** card, or from the CLI:

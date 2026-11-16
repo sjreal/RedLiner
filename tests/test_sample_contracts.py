@@ -2,6 +2,7 @@ from pathlib import Path
 
 from agents.legal_redliner import LegalRedlinerAgent
 from agents.orchestrator import MainOrchestrator
+from core.contract_terms import extract_contract_terms
 from core.deal_store import DealRepository
 from subgraphs.document_parser import DocumentParserSubgraph
 
@@ -83,3 +84,33 @@ def test_priced_sample_computes_utility(tmp_path):
     assert state.target_price == 108000
     assert state.normalized_utility_score > 0
     assert state.finance_analysis.get("status") == "complete"
+
+
+def test_commonpaper_inspired_sample_is_clean_and_priced(tmp_path):
+    source = SAMPLE_DIR / "sample_commonpaper_cloud_service_agreement.docx"
+    result = _redline(source.name, tmp_path)
+    terms = extract_contract_terms(DocumentParserSubgraph().execute(source))
+    assert result.actions == []
+    assert result.critical_count == 0
+    assert terms.offered_price == 150000
+
+
+def test_acc_cooley_inspired_sample_has_mixed_findings(tmp_path):
+    source = SAMPLE_DIR / "sample_acc_cooley_style_saas_agreement.docx"
+    result = _redline(source.name, tmp_path)
+    terms = extract_contract_terms(DocumentParserSubgraph().execute(source))
+    rule_ids = {action.rule_id for action in result.actions}
+    assert rule_ids == {
+        "RULE_PAY_005",
+        "RULE_PRIV_007",
+        "RULE_TERM_006",
+        "RULE_LAW_004",
+    }
+    assert terms.offered_price == 240000
+
+
+def test_pdf_fixture_keeps_price_context():
+    parsed = DocumentParserSubgraph().execute(SAMPLE_DIR / "vendor_saas_agreement.pdf")
+    terms = extract_contract_terms(parsed)
+    assert terms.offered_price == 120000
+    assert terms.payment_terms_days == 15

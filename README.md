@@ -794,13 +794,18 @@ PYTHONPATH=. uv run python scripts/send_sample_contract.py \
 See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md#sending-a-sample-contract-to-the-poller)
 for the Gmail label/filter step and the `--local-webhook` alternative.
 
+Fixtures include synthetic examples adapted from the Common Paper Cloud Service
+Agreement under CC BY 4.0 and an ACC/Cooley-inspired sample with original text.
+See [`data/sample_contracts/README.md`](data/sample_contracts/README.md) for
+pricing, expected results and attribution.
+
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#no-domain-alternative-poll-gmail-over-imap)
 for the label/filter setup. See
 [`docs/MILESTONE_40.md`](docs/MILESTONE_40.md) for workflow details, guardrails,
 trace output, and the remaining rubric gaps.
 
 ### 🧪 Running the Automated Test Suite
-To verify the entire agentic pipeline, run all 80 tests:
+To verify the entire agentic pipeline, run all 83 tests:
 
 ```bash
 PYTHONPATH=. uv run pytest -q

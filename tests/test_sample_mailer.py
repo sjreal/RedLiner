@@ -16,6 +16,8 @@ def test_sample_list_includes_fixtures():
     assert "sample_medium_risk_saas_agreement.docx" in samples
     assert "sample_professional_services_agreement.docx" in samples
     assert "sample_data_processing_addendum.docx" in samples
+    assert "sample_commonpaper_cloud_service_agreement.docx" in samples
+    assert "sample_acc_cooley_style_saas_agreement.docx" in samples
 
 
 def test_send_sample_endpoint(monkeypatch):

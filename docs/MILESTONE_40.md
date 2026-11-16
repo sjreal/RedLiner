@@ -137,7 +137,7 @@ PYTHONPATH=. uv run python -m uvicorn server.app:app --host 127.0.0.1 --port 800
 ## Verify the frameworks
 
 ```bash
-# 80 tests: core, API, framework, MCP including finance tools, A2A status, GLEIF matching, OSINT, guardrails, Langfuse tracing, LLM streaming, email threading, sample fixtures, sample mailer, utility pricing, storage, demo auth, reports, failure paths and HITL
+# 83 tests: core, API, framework, MCP including finance tools, A2A status, GLEIF matching, OSINT, guardrails, Langfuse tracing, LLM streaming, email threading, sample fixtures including Common Paper/ACC-Cooley-inspired examples, sample mailer, utility pricing, storage, demo auth, reports, failure paths and HITL
 PYTHONPATH=. uv run pytest -q
 
 # Confirm the dependency graph is CrewAI + ADK, not LangGraph

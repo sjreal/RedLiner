@@ -17,7 +17,7 @@ project. It covers the synopsis features and all 11 minimum requirements.
   fallback.
 - Prompt-injection checks on inbound email, webhook token, local JSONL traces,
   Gmail SMTP outbound, Cloudflare Worker inbound/outbound, Gmail IMAP poller.
-- FastAPI API, dashboard, 80 tests (core, API, framework, MCP including finance tools, A2A status, GLEIF matching, OSINT, guardrails, Langfuse tracing, LLM streaming, email threading, sample fixtures, sample mailer, utility pricing, storage, demo auth, reports, failure paths and HITL).
+- FastAPI API, dashboard, 83 tests (core, API, framework, MCP including finance tools, A2A status, GLEIF matching, OSINT, guardrails, Langfuse tracing, LLM streaming, email threading, sample fixtures including Common Paper/ACC-Cooley-inspired examples, sample mailer, utility pricing, storage, demo auth, reports, failure paths and HITL).
 
 ## 1. Blocking decision: framework compliance — resolved
 

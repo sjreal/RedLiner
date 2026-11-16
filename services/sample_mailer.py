@@ -21,7 +21,9 @@ def list_samples() -> List[str]:
     return sorted(
         path.name
         for path in SAMPLE_DIR.iterdir()
-        if path.is_file() and path.suffix.lower() in {".docx", ".pdf"}
+        if path.is_file()
+        and path.suffix.lower() in {".docx", ".pdf"}
+        and "_redlined" not in path.stem
     )
 
 

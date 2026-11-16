@@ -291,6 +291,11 @@ mcp_servers/vendor_tools.py
 mcp_servers/finance_tools.py
 ```
 
+Consumers:
+
+- ADK: `DocumentParserNode → parse_contract`, `VendorIntelligenceNode → lookup_vendor`, `TradeoffNode → propose_tradeoff`
+- CrewAI: `VendorLookupTool`, `ContractMetadataTool`, `UtilityScoreTool`, `GuardrailCheckTool`, `TradeoffProposalTool`
+
 See the [MCP tool architecture diagram](diagrams/mcp-architecture.svg) for the
 consumer → client → server flow.
 

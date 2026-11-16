@@ -34,12 +34,24 @@ def test_mcp_servers_expose_real_tools():
             "utility_score",
             {"unit_price": 120000, "target_price": 100000, "payment_terms_days": 60},
         )
+        guardrail = call_tool(
+            "finance_tools.py",
+            "guardrail_check",
+            {"deal_cost": 120000, "utility_score": utility["utility_score"]},
+        )
+        tradeoff = call_tool(
+            "finance_tools.py",
+            "propose_tradeoff",
+            {"offered_price": 120000, "target_price": 100000},
+        )
         crew_tool_result = json.loads(
             VendorLookupTool()._run("ApexCloud Enterprise Ltd")
         )
     assert len(parsed["clauses"]) >= 7
     assert vendor["risk_tier"] == "LOW"
     assert 0.0 <= utility["utility_score"] <= 1.0
+    assert isinstance(guardrail["within_guardrails"], bool)
+    assert 0.0 <= tradeoff["normalized_utility_score"] <= 1.0
     assert crew_tool_result["risk_tier"] == "LOW"
 
 
@@ -50,11 +62,15 @@ def test_adk_uses_contract_and_vendor_mcp_servers():
             contract_path=SAMPLE_DOCX,
             vendor_name="ApexCloud Enterprise Ltd",
             output_dir=OUTPUT_DIR,
+            offered_price=120000,
+            target_price=100000,
         )
     assert result["mcp_contract_used"] is True
     assert result["mcp_vendor_used"] is True
+    assert result["mcp_finance_used"] is True
     assert result["mcp_contract_error"] is None
     assert result["mcp_vendor_error"] is None
+    assert result["mcp_finance_error"] is None
 
 
 def test_orchestrator_records_mcp_tools_used(tmp_path):
@@ -67,9 +83,12 @@ def test_orchestrator_records_mcp_tools_used(tmp_path):
             contract_path=SAMPLE_DOCX,
             vendor_name="ApexCloud Enterprise Ltd",
             output_dir=OUTPUT_DIR,
+            offered_price=120000,
+            target_price=100000,
         )
     assert "contract_tools.parse_contract" in state.mcp_tools_used
     assert "vendor_tools.lookup_vendor" in state.mcp_tools_used
+    assert "finance_tools.propose_tradeoff" in state.mcp_tools_used
     assert state.mcp_errors == []
 
 
@@ -238,3 +257,17 @@ def test_deal_api_endpoints():
     assert counter.status_code == 200
     assert counter.json()["iteration"] == 2
     assert counter.json()["counteroffer"]["offered_price"] == 110000
+
+
+def test_crewai_exposes_all_mcp_tools(monkeypatch):
+    monkeypatch.setenv("MCP_ENABLED", "true")
+    from runtime.crew_runtime import CrewAIRuntime
+
+    names = {tool.name for tool in CrewAIRuntime().tools}
+    assert {
+        "vendor_lookup",
+        "contract_metadata",
+        "utility_score",
+        "guardrail_check",
+        "propose_tradeoff",
+    } <= names

@@ -117,9 +117,10 @@ The `mcp_servers/` package exposes three real **stdio MCP servers**:
 - `vendor_tools.py` — `lookup_vendor`, `sanctions_screen`, `domain_age`.
 - `finance_tools.py` — `utility_score`, `guardrail_check`, `propose_tradeoff`.
 
-ADK’s parser and vendor nodes call the contract/vendor tools over the MCP client
-(`runtime/mcp_client.py`); CrewAI’s procurement/finance agents also receive a
-`vendor_lookup` MCP tool. Set `MCP_ENABLED=true` in `.env`.
+ADK’s parser, vendor and trade-off nodes call the contract/vendor/finance tools
+over the MCP client (`runtime/mcp_client.py`). CrewAI’s procurement/finance agents
+receive `vendor_lookup`, `contract_metadata`, `utility_score`, `guardrail_check`
+and `propose_tradeoff`. Set `MCP_ENABLED=true` in `.env`.
 
 ### Persistence, approvals and convergence
 
@@ -795,7 +796,7 @@ for the label/filter setup. See
 trace output, and the remaining rubric gaps.
 
 ### 🧪 Running the Automated Test Suite
-To verify the entire agentic pipeline, run all 78 tests:
+To verify the entire agentic pipeline, run all 79 tests:
 
 ```bash
 PYTHONPATH=. uv run pytest -q

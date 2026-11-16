@@ -10,7 +10,13 @@ from crewai import Agent, Crew, Process, Task
 
 from core.guardrails import scan_input, scan_output
 from runtime.a2a_tools import A2AVendorTool
-from runtime.crew_tools import VendorLookupTool
+from runtime.crew_tools import (
+    ContractMetadataTool,
+    GuardrailCheckTool,
+    TradeoffProposalTool,
+    UtilityScoreTool,
+    VendorLookupTool,
+)
 from runtime.llm import build_crewai_llm, opencode_configured
 from runtime.mcp_client import mcp_enabled
 from runtime.schemas import (
@@ -75,7 +81,17 @@ class CrewAIRuntime:
         self.enabled = opencode_configured()
         self.llm = build_crewai_llm() if self.enabled else None
         self.last_error: Optional[str] = None
-        self.tools = [VendorLookupTool()] if mcp_enabled() else []
+        self.tools = (
+            [
+                VendorLookupTool(),
+                ContractMetadataTool(),
+                UtilityScoreTool(),
+                GuardrailCheckTool(),
+                TradeoffProposalTool(),
+            ]
+            if mcp_enabled()
+            else []
+        )
         if os.environ.get("A2A_ENABLED", "false").strip().lower() in {
             "1",
             "true",

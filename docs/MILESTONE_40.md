@@ -78,8 +78,8 @@ a per-request `x-opencode-session` header and Pydantic task outputs.
   `crew_finance_review`, `adk_event_count`, `pipeline_error`, `mcp_tools_used`,
   `mcp_errors`, `iteration` and `convergence_reason`.
 - **MCP:** `contract_tools.py`, `vendor_tools.py` and `finance_tools.py` are real
-  stdio servers. ADK calls contract/vendor over MCP; CrewAI exposes a
-  `vendor_lookup` MCP tool.
+  stdio servers. ADK calls contract/vendor/finance over MCP; CrewAI exposes
+  vendor, contract-metadata, utility, guardrail and trade-off tools.
 - **Persistence:** SQLite `DealRepository` stores full state and event history in
   `data/redliner_deals.db`.
 - **HITL:** `/api/deals/{id}/decision` supports approve, reject and manual edit,
@@ -137,7 +137,7 @@ PYTHONPATH=. uv run python -m uvicorn server.app:app --host 127.0.0.1 --port 800
 ## Verify the frameworks
 
 ```bash
-# 78 tests: core, API, framework, MCP, A2A status, GLEIF matching, OSINT, guardrails, Langfuse tracing, LLM streaming, email threading, sample fixtures, sample mailer, storage, demo auth, reports, failure paths and HITL
+# 79 tests: core, API, framework, MCP including finance tools, A2A status, GLEIF matching, OSINT, guardrails, Langfuse tracing, LLM streaming, email threading, sample fixtures, sample mailer, storage, demo auth, reports, failure paths and HITL
 PYTHONPATH=. uv run pytest -q
 
 # Confirm the dependency graph is CrewAI + ADK, not LangGraph

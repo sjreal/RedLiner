@@ -4,7 +4,7 @@ flowchart TD
     classDef tool fill:#F9F8F6,stroke:#8A8178,stroke-width:1.5px,color:#201515;
     classDef store fill:#FFF9DB,stroke:#B08900,stroke-width:1.5px,color:#201515;
 
-    Consumers["MCP consumers<br/>ADK: DocumentParserNode → parse_contract<br/>ADK: VendorIntelligenceNode → lookup_vendor<br/>CrewAI: VendorLookupTool → lookup_vendor<br/>CrewAI: ContractMetadataTool → file_metadata"]:::app
+    Consumers["MCP consumers<br/>ADK: DocumentParserNode → parse_contract<br/>ADK: VendorIntelligenceNode → lookup_vendor<br/>ADK: TradeoffNode → propose_tradeoff<br/>CrewAI: VendorLookupTool → lookup_vendor<br/>CrewAI: ContractMetadataTool → file_metadata<br/>CrewAI: Finance tools → utility_score / guardrail_check / propose_tradeoff"]:::app
 
     Client["MCP stdio client<br/>runtime/mcp_client.py<br/>MCP_ENABLED gate"]:::app
 
@@ -18,7 +18,7 @@ flowchart TD
     Consumers --> Client
     Client --> Contract
     Client --> Vendor
-    Client -.->|available; not currently wired| Finance
+    Client --> Finance
     Contract ~~~ Vendor ~~~ Finance
     Client --> Audit
     Client -.->|disabled or error| Fallback

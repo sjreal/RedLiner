@@ -21,7 +21,12 @@ from google.genai import types
 from pydantic import PrivateAttr
 
 from core.contract_terms import extract_contract_terms
-from core.models import ParsedDocument, RedlineResult, VendorProfile
+from core.models import (
+    ParsedDocument,
+    RedlineResult,
+    TradeoffProposalResult,
+    VendorProfile,
+)
 from runtime.mcp_client import call_tool_async, mcp_enabled
 from runtime.pipeline import (
     build_review_summary,
@@ -257,15 +262,42 @@ class TradeoffNode(_StateNode):
         try:
             state = ctx.session.state
             vendor = VendorProfile.model_validate(state["vendor_profile"])
+            offered = state.get("commercial_offer_price", state.get("offered_price"))
+            target = state.get("target_price")
             finance, tradeoff, utility = run_commercial_review(
-                state.get("commercial_offer_price", state.get("offered_price")),
-                state.get("target_price"),
+                offered,
+                target,
                 vendor.risk_score,
             )
+            mcp_finance_used = False
+            mcp_finance_error = None
+            if mcp_enabled() and offered is not None and target is not None:
+                try:
+                    payload = await call_tool_async(
+                        "finance_tools.py",
+                        "propose_tradeoff",
+                        {
+                            "offered_price": float(offered),
+                            "target_price": float(target),
+                            "vendor_risk_score": vendor.risk_score,
+                        },
+                    )
+                    mcp_tradeoff = TradeoffProposalResult.model_validate(payload)
+                    tradeoff = mcp_tradeoff.model_dump(mode="json")
+                    utility = mcp_tradeoff.normalized_utility_score
+                    finance = {
+                        **finance,
+                        "within_guardrails": mcp_tradeoff.passed_guardrails,
+                    }
+                    mcp_finance_used = True
+                except Exception as exc:
+                    mcp_finance_error = f"{type(exc).__name__}: {exc}"
             yield self._event(
                 finance_analysis=finance,
                 tradeoff_proposal=tradeoff,
                 normalized_utility_score=utility or 0.0,
+                mcp_finance_used=mcp_finance_used,
+                mcp_finance_error=mcp_finance_error,
                 run_status="COMMERCIAL_REVIEWED",
             )
         except Exception as exc:
@@ -419,6 +451,8 @@ class AdkPipeline:
             "mcp_vendor_used": False,
             "mcp_contract_error": None,
             "mcp_vendor_error": None,
+            "mcp_finance_used": False,
+            "mcp_finance_error": None,
             "commercial_rounds": 0,
         }
         await session_service.create_session(

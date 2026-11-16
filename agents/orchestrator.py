@@ -205,11 +205,14 @@ class MainOrchestrator:
             mcp_tools.append("contract_tools.parse_contract")
         if adk_state.get("mcp_vendor_used"):
             mcp_tools.append("vendor_tools.lookup_vendor")
+        if adk_state.get("mcp_finance_used"):
+            mcp_tools.append("finance_tools.propose_tradeoff")
         mcp_errors = [
             error
             for error in (
                 adk_state.get("mcp_contract_error"),
                 adk_state.get("mcp_vendor_error"),
+                adk_state.get("mcp_finance_error"),
             )
             if error
         ]

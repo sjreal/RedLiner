@@ -340,6 +340,8 @@ Solid paths are the default flow. A2A, Gmail polling, PostgreSQL/Supabase and
 Langfuse are opt-in; without them the app uses SQLite, sandbox/SMTP email and a
 deterministic template, and tracing is a no-op.
 
+More diagrams: [agent topology](docs/diagrams/agent-topology.svg) · [MCP tool architecture](docs/diagrams/mcp-architecture.svg).
+
 ---
 
 ## 🚶 Step-by-Step Working Walkthrough

@@ -12,6 +12,8 @@ are omitted from the diagrams.
 |---|---|---|---|
 | System architecture | [architecture.mmd](architecture.mmd) | [SVG](architecture.svg) | [PNG](architecture.png) |
 | Runtime split (ADK + CrewAI) | [runtime.mmd](runtime.mmd) | [SVG](runtime.svg) | [PNG](runtime.png) |
+| Agent topology | [agent-topology.mmd](agent-topology.mmd) | [SVG](agent-topology.svg) | [PNG](agent-topology.png) |
+| MCP tool architecture | [mcp-architecture.mmd](mcp-architecture.mmd) | [SVG](mcp-architecture.svg) | [PNG](mcp-architecture.png) |
 | AWS Compose deployment | [aws-deployment.mmd](aws-deployment.mmd) | [SVG](aws-deployment.svg) | [PNG](aws-deployment.png) |
 
 ## System architecture
@@ -21,6 +23,14 @@ are omitted from the diagrams.
 ## Runtime split
 
 ![RedLiner ADK and CrewAI runtime](runtime.svg)
+
+## Agent topology
+
+![RedLiner agent topology](agent-topology.svg)
+
+## MCP tool architecture
+
+![RedLiner MCP tool architecture](mcp-architecture.svg)
 
 ## AWS deployment topology
 

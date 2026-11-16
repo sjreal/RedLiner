@@ -287,6 +287,9 @@ mcp_servers/vendor_tools.py
 mcp_servers/finance_tools.py
 ```
 
+See the [MCP tool architecture diagram](diagrams/mcp-architecture.svg) for the
+consumer → client → server flow.
+
 **Required**
 
 ```dotenv

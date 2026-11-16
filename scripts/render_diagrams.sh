@@ -29,7 +29,7 @@ fi
 printf '{"executablePath": "%s", "args": ["--no-sandbox", "--disable-setuid-sandbox"]}\n' \
   "$CHROME" > "$CONFIG"
 
-for name in architecture runtime aws-deployment; do
+for name in architecture runtime agent-topology mcp-architecture aws-deployment; do
   echo "Rendering $name"
   npx -y @mermaid-js/mermaid-cli \
     -p "$CONFIG" \

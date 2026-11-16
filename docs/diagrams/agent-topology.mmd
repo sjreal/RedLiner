@@ -1,0 +1,27 @@
+%%{init: {"layout": "dagre", "flowchart": {"nodeSpacing": 18, "rankSpacing": 14, "diagramPadding": 4, "curve": "basis"}}}%%
+flowchart TD
+    classDef facade fill:#FFF3EB,stroke:#FF4F00,stroke-width:2px,color:#201515;
+    classDef adk fill:#F3EEFF,stroke:#6B4EFF,stroke-width:1.5px,color:#201515;
+    classDef crew fill:#EAF7EE,stroke:#1F8A4C,stroke-width:1.5px,color:#201515;
+    classDef tool fill:#F9F8F6,stroke:#8A8178,stroke-width:1.5px,color:#201515;
+    classDef hitl fill:#FFF0F0,stroke:#CC0000,stroke-width:2px,color:#201515;
+
+    Orchestrator["MainOrchestrator<br/>shared NegotiationDealState"]:::facade
+    Parser["ADK: DocumentParserNode → ContractTermsNode"]:::adk
+    Review["ADK: LegalReviewNode ∥ VendorIntelligenceNode"]:::adk
+    Commercial["ADK: ConcessionNode → TradeoffNode"]:::adk
+    Gate["ADK: ApprovalGateNode"]:::adk
+    Summary["ADK: ReviewSummaryNode"]:::adk
+    Procurement["CrewAI: Procurement Negotiator"]:::crew
+    Finance["CrewAI: Finance and Compliance Reviewer"]:::crew
+    Email["CrewAI: Vendor Email Writer"]:::crew
+    A2A["A2A: Vendor Intelligence agent<br/>ADK service :8001"]:::tool
+    HITL["HITL: Approve / Reject /<br/>Manual edit / Counteroffer"]:::hitl
+
+    Orchestrator --> Parser --> Review --> Commercial --> Gate --> Summary
+    Summary --> Procurement --> Finance --> Email
+    Email --> Orchestrator
+    Gate -->|human review| HITL
+    HITL -->|next iteration| Orchestrator
+    Procurement -.-> A2A
+    A2A -.->|same vendor logic| Review

@@ -1,0 +1,24 @@
+%%{init: {"layout": "dagre", "flowchart": {"nodeSpacing": 18, "rankSpacing": 14, "diagramPadding": 4, "curve": "basis"}}}%%
+flowchart TD
+    classDef app fill:#FFF3EB,stroke:#FF4F00,stroke-width:2px,color:#201515;
+    classDef tool fill:#F9F8F6,stroke:#8A8178,stroke-width:1.5px,color:#201515;
+    classDef store fill:#FFF9DB,stroke:#B08900,stroke-width:1.5px,color:#201515;
+
+    Consumers["MCP consumers<br/>ADK: DocumentParserNode → parse_contract<br/>ADK: VendorIntelligenceNode → lookup_vendor<br/>CrewAI: VendorLookupTool → lookup_vendor<br/>CrewAI: ContractMetadataTool → file_metadata"]:::app
+
+    Client["MCP stdio client<br/>runtime/mcp_client.py<br/>MCP_ENABLED gate"]:::app
+
+    Contract["contract_tools.py<br/>parse_contract → DocumentParserSubgraph<br/>file_metadata"]:::tool
+    Vendor["vendor_tools.py<br/>lookup_vendor → VendorInformationSubgraph<br/>sanctions_screen · domain_age"]:::tool
+    Finance["finance_tools.py<br/>utility_score · guardrail_check<br/>propose_tradeoff → TradeoffEngineSubgraph"]:::tool
+
+    Audit[("data/mcp_audit.jsonl<br/>server · tool · status · duration")]:::store
+    Fallback["Deterministic fallback<br/>parser / vendor / tradeoff<br/>when MCP is disabled or fails"]:::tool
+
+    Consumers --> Client
+    Client --> Contract
+    Client --> Vendor
+    Client -.->|available; not currently wired| Finance
+    Contract ~~~ Vendor ~~~ Finance
+    Client --> Audit
+    Client -.->|disabled or error| Fallback

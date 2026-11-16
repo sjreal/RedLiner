@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initVendorRadar();
   initEmailDispatcher();
   initSampleMailer();
+  initRecentDeals();
   initA2AStatus();
   initHelpersAudit();
 
@@ -21,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadPlaybook();
   loadVendors();
   loadLogs();
+  loadRecentDeals();
 });
 
 // Toast notification helper
@@ -782,6 +784,57 @@ function initA2AStatus() {
   button.addEventListener("click", checkA2A);
 }
 
+function recentDealStatusClass(status) {
+  const value = String(status || "").toUpperCase();
+  if (value.includes("APPROVED") || value.includes("CONVERGED")) return "success";
+  if (value.includes("AWAITING") || value.includes("MAX")) return "warning";
+  if (value.includes("ERROR") || value.includes("BLOCKED")) return "danger";
+  return "";
+}
+
+async function loadRecentDeals() {
+  const list = document.getElementById("recent-deals-list");
+  const status = document.getElementById("recent-deals-status");
+  if (!list) return;
+  if (status) status.textContent = "Loading…";
+  try {
+    const res = await fetch(`/api/deals?limit=6&_=${Date.now()}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Could not load deals.");
+    const deals = data.deals || [];
+    if (!deals.length) {
+      list.innerHTML = '<p class="deal-empty">No deals yet. Send a contract through the email tab or Gmail poller.</p>';
+    } else {
+      list.innerHTML = deals.map((deal) => {
+        const utility = deal.utility_available ? Number(deal.utility || 0).toFixed(2) : "N/A";
+        return `
+          <a class="deal-row" href="/deals.html?deal=${encodeURIComponent(deal.deal_id)}">
+            <span class="deal-row-main">
+              <strong>${escapeHtml(deal.deal_id)}</strong>
+              <small>${escapeHtml(deal.vendor_name || "Unknown vendor")} · ${escapeHtml(deal.risk_tier || "UNKNOWN")}</small>
+            </span>
+            <span class="deal-row-meta">
+              <span class="status-chip ${recentDealStatusClass(deal.status)}">${escapeHtml(deal.status)}</span>
+              <small>iter ${escapeHtml(deal.iteration)}/${escapeHtml(deal.max_iterations)} · util ${utility}</small>
+            </span>
+          </a>`;
+      }).join("");
+    }
+    if (status) status.textContent = `${deals.length} recent deal${deals.length === 1 ? "" : "s"}`;
+  } catch (err) {
+    list.innerHTML = `<p class="deal-empty error-text">${escapeHtml(err.message)}</p>`;
+    if (status) status.textContent = "";
+  }
+}
+
+function initRecentDeals() {
+  const button = document.getElementById("btn-refresh-recent-deals");
+  if (button) button.addEventListener("click", loadRecentDeals);
+  if (document.getElementById("recent-deals-list")) {
+    setInterval(loadRecentDeals, 30000);
+  }
+}
+
 function initSampleMailer() {
   const select = document.getElementById("sample-contract-select");
   const recipient = document.getElementById("sample-recipient");
@@ -1059,6 +1112,7 @@ function initEmailDispatcher() {
       showToast(`Autonomous pipeline complete: ${data.violations_detected || 7} redlines tracked in Word!`);
       loadVendors();
       loadLogs();
+      loadRecentDeals();
     } catch (err) {
       showToast(`Webhook error: ${err.message}`);
     } finally {

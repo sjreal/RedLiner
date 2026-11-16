@@ -899,3 +899,16 @@ table.data-table tr:hover {
   background: var(--surface-soft);
   color: var(--ink-muted);
 }
+
+/* Recent deals on the main dashboard */
+.recent-deals-card { margin-bottom: 20px; }
+.recent-deals-card .card-header { margin-bottom: 12px; }
+.recent-deals-card .deal-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+.recent-deals-card .deal-row {
+  text-decoration: none;
+  height: 100%;
+}

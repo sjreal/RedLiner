@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2026.12">
+  <link rel="stylesheet" href="style.css?v=2026.13">
 </head>
 <body>
 
@@ -95,6 +95,23 @@
         <div class="metric-note">Live SQLite Due-Diligence DB</div>
       </div>
     </div>
+
+    <!-- Recent deals from polling, webhook or upload -->
+    <section class="card recent-deals-card" id="recent-deals-card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">📥 Recent deals</h2>
+          <p class="card-desc">Contracts received by Gmail polling, the inbound webhook, or upload.</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span id="recent-deals-status" class="stream-status"></span>
+          <button type="button" class="btn btn-secondary" id="btn-refresh-recent-deals">Refresh</button>
+        </div>
+      </div>
+      <div id="recent-deals-list" class="deal-list">
+        <p class="deal-empty">Loading deals…</p>
+      </div>
+    </section>
 
     <!-- TAB 1: Document Parser & Legal Redliner -->
     <section id="redliner-tab" class="tab-content active">
@@ -655,6 +672,6 @@
   </div>
 
   <script src="llm_stream.js?v=2026.12"></script>
-  <script src="app.js?v=2026.12"></script>
+  <script src="app.js?v=2026.13"></script>
 </body>
 </html>

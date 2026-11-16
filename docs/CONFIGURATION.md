@@ -569,7 +569,7 @@ has the Gmail user and App Password.
 
 - Server log: `[inbox-worker] polling Gmail label 'RedLiner' every 60s`.
 - `data/incoming/gmail_poller_runs.jsonl` records each poll.
-- The deal appears in `/deals.html`.
+- The deal appears in `/deals.html` and in the main dashboard **Recent deals** card.
 
 ### Sending a sample contract to the poller
 

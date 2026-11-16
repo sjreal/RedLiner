@@ -268,6 +268,7 @@ The ADK workflow contains an explicit bounded `LoopAgent` for commercial
 concession rounds. The browser review workbench is at `/deals.html`; it exposes:
 
 - deal list with risk, utility, iteration, token/cost summary and status
+- main-dashboard **Recent deals** card with direct links into the workbench
 - deal-scoped email preview and dispatch
 - DOCX and JSON/Markdown report downloads
 - contract clauses and proposed redlines

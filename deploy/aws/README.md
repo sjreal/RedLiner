@@ -7,46 +7,39 @@ tiers, so there is no database or observability process on the VM.
 ## Deployment topology
 
 ```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 6, "diagramPadding": 2, "curve": "basis"}}}%%
+%%{init: {"layout": "dagre", "flowchart": {"nodeSpacing": 18, "rankSpacing": 14, "diagramPadding": 4, "subGraphTitleMargin": {"top": 10, "bottom": 2}, "curve": "basis"}}}%%
 flowchart TD
     classDef user fill:#EBF3FF,stroke:#0066CC,stroke-width:1.5px,color:#201515;
     classDef aws fill:#FFF3EB,stroke:#FF4F00,stroke-width:2px,color:#201515;
     classDef box fill:#F9F8F6,stroke:#8A8178,stroke-width:1.5px,color:#201515;
     classDef store fill:#FFF9DB,stroke:#B08900,stroke-width:1.5px,color:#201515;
     classDef ext fill:#FFFFFF,stroke:#666666,stroke-dasharray: 4 3,color:#201515;
+    classDef groupLabel fill:transparent,stroke:transparent,color:#605D52;
 
     Reviewer["Reviewer browser"]:::user
+    Host["AWS Lightsail 1 GB / EC2<br/>Ubuntu 24.04, static IP"]:::aws
 
-    subgraph AWS["AWS Lightsail 1 GB / EC2 — Ubuntu 24.04, static IP"]
+    subgraph AWS[" "]
         direction TB
         Firewall["Firewall<br/>22 / 8000 / 8001"]:::aws
-        subgraph Compose["Docker Compose"]
+        subgraph Compose[" "]
             direction TB
+            ComposeLabel["Docker Compose"]:::groupLabel
             Backend["backend<br/>FastAPI + dashboard<br/>Gmail IMAP poller<br/>:8000"]:::box
             A2A["a2a<br/>ADK vendor agent<br/>:8001"]:::box
             Data[("bind mount<br/>data/")]:::store
         end
     end
 
-    subgraph SaaS["Managed services outside the VM"]
-        direction TB
-        Supabase[("Supabase PostgreSQL")]:::store
-        Langfuse["Langfuse Cloud"]:::ext
-        OpenCode["OpenCode Go<br/>model endpoint"]:::ext
-        Gmail["Gmail<br/>IMAP + SMTP"]:::ext
-        OSINT["GLEIF"]:::ext
-        Supabase ~~~ Langfuse ~~~ OpenCode ~~~ Gmail ~~~ OSINT
-    end
+    Managed["Managed services<br/>Supabase · Langfuse<br/>OpenCode · Gmail · GLEIF"]:::ext
 
-    Reviewer -->|HTTP :8000| Firewall
+    Reviewer -->|HTTP :8000| Host --> Firewall
     Firewall --> Backend
+    ComposeLabel --> Backend
     Firewall -->|:8001| A2A
     Backend -->|A2A + bearer token| A2A
-    Backend -->|DATABASE_URL| Supabase
-    Backend -->|traces| Langfuse
-    Backend -->|LLM calls| OpenCode
-    Backend -->|IMAP poll / SMTP send| Gmail
-    A2A -->|vendor risk| OSINT
+    Backend -->|DATABASE_URL · traces · LLM · email| Managed
+    A2A -->|vendor risk| Managed
     Backend --> Data
 ```
 

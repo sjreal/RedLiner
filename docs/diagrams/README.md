@@ -4,7 +4,7 @@ Editable Mermaid sources and rendered outputs. The Mermaid blocks in the docs
 remain the primary editable source; these files are for GitHub previews, slides
 and reports.
 
-The layouts are portrait-oriented for document pages. Optional edge/TLS nodes
+The layouts are compact and page-oriented for documents. Optional edge/TLS nodes
 (Cloudflare/Caddy, Email Routing) and optional search providers (Tavily/Serper)
 are omitted from the diagrams.
 

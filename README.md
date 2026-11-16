@@ -275,14 +275,18 @@ concession rounds. The browser review workbench is at `/deals.html`; it exposes:
 - vendor counteroffer form and recorded extraction
 - immutable iteration snapshots and audit events
 - Langfuse trace link
-- streaming email-draft generation with a loading overlay and token-by-token text
+- automatic token streaming into the main email boxes, with a loading overlay
 - effective demo settings (model, email provider, MCP, OSINT, guardrails,
   Langfuse, A2A, Gmail poller, database, demo auth)
 
-The **Stream draft** buttons use `POST /api/email/draft-stream` (SSE). The UI
-opens a loading overlay while waiting for the first token, then appends tokens as
-they arrive and saves the completed draft back to the deal. This requires
-`OPENCODE_API_KEY`; without it, use the deterministic template preview.
+The email preview boxes stream automatically on first deal open and after an
+inbound pipeline. They use `POST /api/email/draft-stream` (SSE): the loading
+overlay appears while waiting for the first token, then hides and streams tokens
+directly into the email box. The completed draft is saved back to the deal. This
+requires `OPENCODE_API_KEY`; without it, the deterministic template remains.
+
+Approve, reject, manual-edit, counteroffer and dispatch actions disable the other
+buttons and show progress until the backend response is applied.
 
 `REVIEWER_EMAIL` and `REVIEWER_WEBHOOK_URL` enable reviewer notifications.
 The shared Basic Auth gate protects the workbench and APIs.

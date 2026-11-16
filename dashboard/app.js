@@ -4,6 +4,7 @@ let currentParsedDoc = null;
 let currentRedlineResult = null;
 let currentFilename = "vendor_saas_agreement.docx";
 let allVendors = [];
+const autoStreamedDeals = new Set();
 
 document.addEventListener("DOMContentLoaded", () => {
   initTabs();
@@ -708,6 +709,29 @@ async function promptNewVendorAssessment() {
 }
 
 // ---------------- 4. Cloudflare Email Dispatcher & Delivery Settings ----------------
+async function streamIntoPreview(dealId) {
+  const preview = document.getElementById("outbound-body-preview");
+  if (!preview) return;
+  let started = false;
+  await window.RedLinerLLM.streamDraft({
+    dealId,
+    instructions: "Draft a concise, collaborative vendor-facing email. Do not invent terms.",
+    statusEl: "outbound-stream-status",
+    onToken: (token) => {
+      if (!started) {
+        preview.value = "";
+        started = true;
+      }
+      preview.value += token;
+      preview.scrollTop = preview.scrollHeight;
+    },
+    onDone: (text) => {
+      preview.value = text;
+    },
+    onError: (err) => showToast(`Draft streaming failed: ${err.message}`),
+  });
+}
+
 function initA2AStatus() {
   const chip = document.getElementById("a2a-status-chip");
   const detail = document.getElementById("a2a-status-detail");
@@ -885,7 +909,6 @@ function initEmailDispatcher() {
   const inboundForm = document.getElementById("inbound-webhook-form");
   const outboundForm = document.getElementById("outbound-dispatch-form");
   const btnRefreshPreview = document.getElementById("btn-refresh-email-preview");
-  const btnStreamPreview = document.getElementById("btn-stream-email-preview");
   const btnViewWorkbench = document.getElementById("btn-view-redlines-workbench");
 
   const emailConfigForm = document.getElementById("email-config-form");
@@ -1028,6 +1051,11 @@ function initEmailDispatcher() {
         document.getElementById("outbound-body-preview").value = data.counter_proposal_email.counter_proposal_body;
       }
 
+      if (data.deal_id && !autoStreamedDeals.has(data.deal_id)) {
+        autoStreamedDeals.add(data.deal_id);
+        streamIntoPreview(data.deal_id);
+      }
+
       showToast(`Autonomous pipeline complete: ${data.violations_detected || 7} redlines tracked in Word!`);
       loadVendors();
       loadLogs();
@@ -1040,39 +1068,19 @@ function initEmailDispatcher() {
     }
   });
 
-  btnRefreshPreview.addEventListener("click", () => {
-    if (currentRedlineResult) updateEmailPreview(currentRedlineResult);
-  });
-
-  if (btnStreamPreview) {
-    btnStreamPreview.addEventListener("click", async () => {
-      const dealId = document.getElementById("outbound-deal-id").value.trim();
-      const preview = document.getElementById("outbound-body-preview");
-      if (!dealId) {
-        showToast("Run the inbound pipeline or enter a deal ID first.");
-        return;
-      }
-      preview.value = "";
-      btnStreamPreview.disabled = true;
+  btnRefreshPreview.addEventListener("click", async () => {
+    const dealId = document.getElementById("outbound-deal-id").value.trim();
+    if (dealId) {
+      btnRefreshPreview.disabled = true;
       try {
-        await window.RedLinerLLM.streamDraft({
-          dealId,
-          instructions: "Draft a concise, collaborative vendor-facing email. Do not invent terms.",
-          onToken: (token) => {
-            preview.value += token;
-            preview.scrollTop = preview.scrollHeight;
-          },
-          onDone: (text) => {
-            preview.value = text;
-            showToast("Streaming draft complete.");
-          },
-          onError: (err) => showToast(`Draft error: ${err.message}`),
-        });
+        await streamIntoPreview(dealId);
       } finally {
-        btnStreamPreview.disabled = false;
+        btnRefreshPreview.disabled = false;
       }
-    });
-  }
+    } else if (currentRedlineResult) {
+      updateEmailPreview(currentRedlineResult);
+    }
+  });
 
   // Outbound dispatch form
   outboundForm.addEventListener("submit", async (e) => {

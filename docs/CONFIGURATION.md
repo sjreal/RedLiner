@@ -153,9 +153,11 @@ OPENCODE_ENDPOINT=https://opencode.ai/inference/go/openai/v1/chat/completions
 `OPENCODE_BASE_URL` is used by the CrewAI/ADK adapter (`runtime/llm.py`).
 `OPENCODE_ENDPOINT` is used by the standalone email drafter (`services/opencode_llm.py`).
 
-The workbench's **Stream draft** buttons call `POST /api/email/draft-stream` with
-`stream: true` and render the response token by token. This requires a valid
-`OPENCODE_API_KEY`; without it, the deterministic template preview still works.
+The workbench and email-tab preview boxes stream automatically via
+`POST /api/email/draft-stream` with `stream: true`. The loading overlay disappears
+at the first token and the text streams directly into the main box. This requires
+a valid `OPENCODE_API_KEY`; without it, the deterministic template preview still
+works. The **Regenerate Text** button re-streams when a deal ID is present.
 
 **Steps**
 

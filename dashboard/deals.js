@@ -1,15 +1,32 @@
-const state = { dealId: null, deal: null };
+const state = { dealId: null, deal: null, streamedDeals: new Set() };
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 }[c]));
 
-function message(text, error = false) {
+function message(text, error = false, loading = false) {
   const box = $("deal-message");
   box.hidden = false;
   box.textContent = text;
-  box.className = "deal-message" + (error ? " error" : " success");
+  box.className = "deal-message" + (error ? " error" : loading ? " loading" : " success");
+}
+
+const ACTION_LABELS = {
+  "btn-approve": "Approve",
+  "btn-reject": "Reject",
+  "btn-manual": "Manual edit",
+  "btn-counteroffer": "Apply counteroffer",
+  "btn-dispatch-deal": "Dispatch to vendor",
+};
+
+function setActionsBusy(busy, activeId = null, activeLabel = "") {
+  Object.entries(ACTION_LABELS).forEach(([id, label]) => {
+    const button = $(id);
+    if (!button) return;
+    button.disabled = busy;
+    button.textContent = id === activeId && busy ? activeLabel : label;
+  });
 }
 
 async function api(path, options = {}) {
@@ -60,7 +77,7 @@ function statusClass(status) {
   return "";
 }
 
-async function openDeal(dealId) {
+async function openDeal(dealId, preloaded = null) {
   state.dealId = dealId;
   $("deal-detail").hidden = false;
   $("deal-title").textContent = "Loading…";
@@ -68,7 +85,7 @@ async function openDeal(dealId) {
   $("deal-status").textContent = "LOADING";
   $("deal-status").className = "status-chip";
   try {
-    const deal = await api(`/api/deals/${encodeURIComponent(dealId)}`);
+    const deal = preloaded || await api(`/api/deals/${encodeURIComponent(dealId)}`);
     state.deal = deal;
     $("deal-detail").hidden = false;
     $("deal-title").textContent = deal.deal_id;
@@ -97,7 +114,14 @@ async function openDeal(dealId) {
       : "No vendor counteroffer recorded.";
     $("deal-email-subject").textContent = deal.counter_proposal_email?.subject || "No draft email.";
     $("deal-email-body").textContent = deal.counter_proposal_email?.counter_proposal_body || "No draft body.";
+    $("deal-email-stream-status").textContent = "";
     $("review-notes").value = deal.review_feedback || "";
+
+    // Stream a fresh draft into the main email box on first open.
+    if (deal.redline_result && !state.streamedDeals.has(dealId)) {
+      state.streamedDeals.add(dealId);
+      streamDealDraft(dealId);
+    }
 
     const clauses = deal.parsed_clauses || [];
     $("deal-clauses").innerHTML = clauses.length
@@ -120,15 +144,19 @@ async function openDeal(dealId) {
           </tr>`).join("")
       : '<tr><td colspan="4" class="deal-empty">No redlines.</td></tr>';
 
-    const history = await api(`/api/deals/${encodeURIComponent(dealId)}/history`);
-    $("deal-history").innerHTML = (history.history || []).map((item) => `
-      <div class="history-item">
-        <strong>Iteration ${esc(item.iteration)}</strong>
-        <span class="status-chip ${statusClass(item.status)}">${esc(item.status)}</span>
-        <small>${esc(item.created_at)}</small>
-      </div>
-    `).join("") || "No snapshots yet.";
-    await loadDeals();
+    api(`/api/deals/${encodeURIComponent(dealId)}/history`)
+      .then((history) => {
+        if (state.dealId !== dealId) return;
+        $("deal-history").innerHTML = (history.history || []).map((item) => `
+          <div class="history-item">
+            <strong>Iteration ${esc(item.iteration)}</strong>
+            <span class="status-chip ${statusClass(item.status)}">${esc(item.status)}</span>
+            <small>${esc(item.created_at)}</small>
+          </div>
+        `).join("") || "No snapshots yet.";
+      })
+      .catch(() => {});
+    loadDeals().catch(() => {});
   } catch (error) {
     message(error.message, true);
   }
@@ -147,6 +175,10 @@ async function decide(decision) {
       return;
     }
   }
+  const buttonId = decision === "APPROVE" ? "btn-approve" : decision === "REJECT" ? "btn-reject" : "btn-manual";
+  const label = decision === "APPROVE" ? "Approving…" : decision === "REJECT" ? "Rejecting…" : "Saving…";
+  setActionsBusy(true, buttonId, label);
+  message(`Submitting ${decision.replace("_", " ").toLowerCase()}…`, false, true);
   try {
     const updated = await api(`/api/deals/${encodeURIComponent(state.dealId)}/decision`, {
       method: "POST",
@@ -158,9 +190,11 @@ async function decide(decision) {
       }),
     });
     message(`${decision} recorded. Status: ${updated.run_status}`);
-    await openDeal(state.dealId);
+    await openDeal(state.dealId, updated);
   } catch (error) {
     message(error.message, true);
+  } finally {
+    setActionsBusy(false);
   }
 }
 
@@ -171,6 +205,8 @@ async function applyCounteroffer() {
     message("Enter a positive offered price.", true);
     return;
   }
+  setActionsBusy(true, "btn-counteroffer", "Applying…");
+  message("Applying counteroffer…", false, true);
   try {
     const updated = await api(`/api/deals/${encodeURIComponent(state.dealId)}/counteroffer`, {
       method: "POST",
@@ -183,9 +219,11 @@ async function applyCounteroffer() {
     message(`Counteroffer applied. Iteration ${updated.iteration}, status ${updated.run_status}.`);
     $("counter-offer-price").value = "";
     $("counter-target-price").value = "";
-    await openDeal(state.dealId);
+    await openDeal(state.dealId, updated);
   } catch (error) {
     message(error.message, true);
+  } finally {
+    setActionsBusy(false);
   }
 }
 
@@ -199,6 +237,8 @@ async function dispatchEmail() {
     message("A recipient and redlined document are required.", true);
     return;
   }
+  setActionsBusy(true, "btn-dispatch-deal", "Dispatching…");
+  message("Dispatching counter-proposal email…", false, true);
   try {
     const result = await api("/api/email/dispatch-counter-proposal", {
       method: "POST",
@@ -215,34 +255,34 @@ async function dispatchEmail() {
     await openDeal(state.dealId);
   } catch (error) {
     message(error.message, true);
+  } finally {
+    setActionsBusy(false);
   }
 }
 
-async function streamDealDraft() {
-  if (!state.dealId) {
-    message("Select a deal first.", true);
-    return;
-  }
+async function streamDealDraft(dealId) {
   const body = $("deal-email-body");
-  const button = $("btn-stream-deal");
-  body.textContent = "";
-  button.disabled = true;
-  try {
-    await window.RedLinerLLM.streamDraft({
-      dealId: state.dealId,
-      instructions: "Draft a concise, collaborative vendor-facing email. Do not invent terms.",
-      onToken: (token) => {
-        body.textContent += token;
-      },
-      onDone: (text) => {
-        body.textContent = text;
-        message("Streaming draft complete.");
-      },
-      onError: (err) => message(`Draft error: ${err.message}`, true),
-    });
-  } finally {
-    button.disabled = false;
-  }
+  const status = $("deal-email-stream-status");
+  if (!body) return;
+  let started = false;
+  await window.RedLinerLLM.streamDraft({
+    dealId,
+    instructions: "Draft a concise, collaborative vendor-facing email. Do not invent terms.",
+    statusEl: "deal-email-stream-status",
+    onToken: (token) => {
+      if (!started) {
+        body.textContent = "";
+        started = true;
+      }
+      body.textContent += token;
+    },
+    onDone: (text) => {
+      body.textContent = text;
+    },
+    onError: (err) => {
+      if (status) status.textContent = `Draft failed: ${err.message}`;
+    },
+  });
 }
 
 async function loadSettings() {
@@ -270,7 +310,6 @@ $("btn-reject").addEventListener("click", () => decide("REJECT"));
 $("btn-manual").addEventListener("click", () => decide("MANUAL_EDIT"));
 $("btn-counteroffer").addEventListener("click", applyCounteroffer);
 $("btn-dispatch-deal").addEventListener("click", dispatchEmail);
-$("btn-stream-deal").addEventListener("click", streamDealDraft);
 
 const requestedDeal = new URLSearchParams(window.location.search).get("deal");
 loadDeals();

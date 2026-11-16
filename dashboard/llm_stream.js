@@ -46,6 +46,12 @@
     stream.scrollTop = stream.scrollHeight;
   }
 
+  function setInlineStatus(id, text) {
+    if (!id) return;
+    const target = el(id);
+    if (target) target.textContent = text;
+  }
+
   function fail(message) {
     const status = el("llm-loading-status");
     const stream = el("llm-loading-stream");
@@ -86,7 +92,7 @@
     }
   }
 
-  async function streamDraft({ dealId, instructions = "", onToken, onDone, onError }) {
+  async function streamDraft({ dealId, instructions = "", statusEl, onToken, onDone, onError }) {
     if (!dealId) {
       const error = new Error("Select a deal first.");
       if (onError) onError(error);
@@ -97,11 +103,13 @@
       title: "Drafting counter-proposal…",
       status: "Waiting for the model's first token…",
     });
+    setInlineStatus(statusEl, "Waiting for the model…");
 
     const controller = new AbortController();
     activeController = controller;
     let buffer = "";
     let full = "";
+    let firstToken = true;
 
     try {
       const response = await fetch("/api/email/draft-stream", {
@@ -147,9 +155,15 @@
             full += token;
             setStatus("Streaming draft…");
             append(token);
+            if (firstToken) {
+              firstToken = false;
+              hide();
+              setInlineStatus(statusEl, "Streaming…");
+            }
             if (onToken) onToken(token, full);
           } else if (message.event === "done") {
             full = message.data.text || full;
+            setInlineStatus(statusEl, "");
             if (onDone) onDone(full);
             hide();
             return full;
@@ -160,6 +174,7 @@
       }
 
       if (full) {
+        setInlineStatus(statusEl, "");
         if (onDone) onDone(full);
         hide();
         return full;
@@ -167,10 +182,15 @@
       throw new Error("The model returned no text.");
     } catch (err) {
       if (err.name === "AbortError") {
+        setInlineStatus(statusEl, "");
         hide();
         return "";
       }
-      fail(err.message || "Streaming failed.");
+      if (firstToken) {
+        fail(err.message || "Streaming failed.");
+      } else {
+        setInlineStatus(statusEl, `Draft failed: ${err.message}`);
+      }
       if (onError) onError(err);
       return "";
     } finally {

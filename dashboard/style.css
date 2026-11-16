@@ -885,3 +885,17 @@ table.data-table tr:hover {
   animation: llm-spin 0.8s linear infinite;
 }
 @keyframes llm-spin { to { transform: rotate(360deg); } }
+
+/* Inline streaming status and busy action buttons */
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.stream-status {
+  display: inline-block;
+  min-height: 14px;
+  margin: 4px 0;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+.deal-message.loading {
+  background: var(--surface-soft);
+  color: var(--ink-muted);
+}

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2026.9">
+  <link rel="stylesheet" href="style.css?v=2026.12">
 </head>
 <body>
   <header class="app-header">
@@ -95,10 +95,10 @@
 
           <h3 class="deal-section-title">Counter-proposal email</h3>
           <p class="deal-text" id="deal-email-subject">—</p>
+          <span id="deal-email-stream-status" class="stream-status" aria-live="polite"></span>
           <pre class="deal-email-body" id="deal-email-body">—</pre>
           <div class="deal-dispatch-row">
             <input id="dispatch-recipient" class="search-input" type="email" placeholder="Recipient email">
-            <button class="btn btn-secondary" id="btn-stream-deal">Stream draft</button>
             <button class="btn btn-primary" id="btn-dispatch-deal">Dispatch to vendor</button>
           </div>
 
@@ -139,7 +139,7 @@
     </div>
   </div>
 
-  <script src="llm_stream.js?v=2026.9"></script>
-  <script src="deals.js?v=2026.9"></script>
+  <script src="llm_stream.js?v=2026.12"></script>
+  <script src="deals.js?v=2026.12"></script>
 </body>
 </html>

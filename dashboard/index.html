@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2026.9">
+  <link rel="stylesheet" href="style.css?v=2026.12">
 </head>
 <body>
 
@@ -571,14 +571,12 @@
               <div>
                 <label style="display: block; font-size: 12px; font-weight: 600; color: var(--ink-muted); margin-bottom: 4px;">Email Body Preview</label>
                 <textarea id="outbound-body-preview" class="search-input" rows="10" style="width: 100%; font-family: monospace; font-size: 12px; resize: vertical; line-height: 1.5;"></textarea>
+                <span id="outbound-stream-status" class="stream-status" aria-live="polite"></span>
               </div>
 
               <div style="display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap;">
                 <button type="button" class="btn btn-secondary" id="btn-refresh-email-preview">
                   <span>Regenerate Text</span>
-                </button>
-                <button type="button" class="btn btn-secondary" id="btn-stream-email-preview">
-                  <span>✨ Stream LLM draft</span>
                 </button>
                 <button type="submit" class="btn btn-primary" id="btn-send-counter-email">
                   <span>🚀 Dispatch Counter-Proposal Email</span>
@@ -654,7 +652,7 @@
     </div>
   </div>
 
-  <script src="llm_stream.js?v=2026.9"></script>
-  <script src="app.js?v=2026.11"></script>
+  <script src="llm_stream.js?v=2026.12"></script>
+  <script src="app.js?v=2026.12"></script>
 </body>
 </html>

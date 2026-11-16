@@ -713,6 +713,7 @@ function initSampleMailer() {
   const status = document.getElementById("sample-send-status");
   const sendOne = document.getElementById("btn-send-sample");
   const sendBoth = document.getElementById("btn-send-both-samples");
+  const retry = document.getElementById("btn-retry-samples");
   if (!select || !sendOne || !sendBoth) return;
 
   const setStatus = (text, error = false) => {
@@ -726,8 +727,21 @@ function initSampleMailer() {
 
   async function loadSamples() {
     try {
-      const res = await fetch("/api/email/samples");
-      if (!res.ok) throw new Error("Could not load the sample list.");
+      const res = await fetch(`/api/email/samples?_=${Date.now()}`);
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        let detail = text;
+        try {
+          const parsed = JSON.parse(text);
+          detail = parsed.detail || parsed.message || text;
+        } catch (parseError) {
+          // Keep the raw response text.
+        }
+        const hint = res.status === 404
+          ? " Restart the backend so the new endpoint is loaded."
+          : "";
+        throw new Error(`Could not load the sample list (HTTP ${res.status})${detail ? `: ${detail}` : "."}${hint}`);
+      }
       const data = await res.json();
       const samples = data.samples || [];
       select.innerHTML = samples
@@ -735,8 +749,10 @@ function initSampleMailer() {
         .join("");
       const preferred = samples.find((name) => name.includes("clean"));
       if (preferred) select.value = preferred;
+      if (retry) retry.hidden = true;
     } catch (err) {
       setStatus(err.message, true);
+      if (retry) retry.hidden = false;
     }
   }
 
@@ -809,6 +825,7 @@ function initSampleMailer() {
     }
   });
 
+  if (retry) retry.addEventListener("click", loadSamples);
   loadSamples();
   loadRecipient();
 }

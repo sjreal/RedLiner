@@ -13,6 +13,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 
 from core.env import load_app_env
+from core.sender import sender_identity
 from core.models import (
     InboundEmailWebhook,
     OutboundEmailRequest,
@@ -132,6 +133,7 @@ class EmailConnectorService:
         deal_id: Optional[str] = None,
     ) -> OutboundEmailRequest:
         vendor_name = vendor.company_name if vendor else "Vendor"
+        sender_name, sender_company = sender_identity()
 
         critical_edits = [a for a in redline_result.actions if a.severity.value == "CRITICAL"]
         high_edits = [a for a in redline_result.actions if a.severity.value == "HIGH"]
@@ -169,8 +171,8 @@ class EmailConnectorService:
             "We look forward to finalizing the terms promptly and onboarding your services.",
             "",
             "Best regards,",
-            "RedLiner Procurement & Legal Operations Team",
-            "RedLiner B2B Autonomous Contracting Platform",
+            sender_name,
+            sender_company,
         ])
 
         email_body = "\n".join(body_lines)

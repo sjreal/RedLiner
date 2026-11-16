@@ -36,6 +36,7 @@ from Helpers.logger import get_recent_logs
 from core.env import load_app_env
 from core.report import build_deal_report, report_to_markdown
 from core.docx_finalize import finalize_docx
+from core.sender import ensure_sender_signature
 from services.opencode_llm import OpenCodeLLM
 from services.sample_mailer import list_samples, send_sample_contract
 
@@ -675,7 +676,7 @@ def stream_email_draft(req: DraftStreamRequest):
             ):
                 collected.append(token)
                 yield _sse("token", {"text": token})
-            text = "".join(collected).strip()
+            text = ensure_sender_signature("".join(collected).strip())
             if not text:
                 raise RuntimeError("The model returned no text.")
             if state.counter_proposal_email is not None:

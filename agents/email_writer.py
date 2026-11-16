@@ -3,6 +3,7 @@ from pathlib import Path
 from core.models import RedlineResult, VendorProfile, OutboundEmailRequest
 from services.email_connector import EmailConnectorService
 from services.opencode_llm import OpenCodeLLM
+from core.sender import ensure_sender_signature
 
 
 class EmailWriterAgent:
@@ -39,9 +40,15 @@ class EmailWriterAgent:
             request.counter_proposal_body = draft_body
             if draft_subject:
                 request.subject = draft_subject
+            request.counter_proposal_body = ensure_sender_signature(
+                request.counter_proposal_body
+            )
             self.llm.status = "crewai"
             return request
         if not self.llm.enabled:
+            request.counter_proposal_body = ensure_sender_signature(
+                request.counter_proposal_body
+            )
             self.llm.status = "disabled_fallback_template"
             return request
 
@@ -65,6 +72,9 @@ class EmailWriterAgent:
         except Exception as exc:
             # Keep the deterministic, already validated template as a safe fallback.
             self.last_llm_error = type(exc).__name__
+        request.counter_proposal_body = ensure_sender_signature(
+            request.counter_proposal_body
+        )
         return request
 
     def dispatch_email(

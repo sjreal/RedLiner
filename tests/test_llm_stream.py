@@ -69,7 +69,10 @@ def test_stream_endpoint_emits_tokens_and_saves_draft(monkeypatch):
     updated = app_orchestrator.get_deal(deal_id)
     assert updated is not None
     assert updated.counter_proposal_email is not None
-    assert updated.counter_proposal_email.counter_proposal_body == "Hello vendor"
+    body = updated.counter_proposal_email.counter_proposal_body
+    assert "Hello vendor" in body
+    assert "Siddharth Jain" in body
+    assert "BML Munjal University" in body
 
 
 def test_sample_contract_download_endpoint():

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from crewai import Agent, Crew, Process, Task
 
 from core.guardrails import scan_input, scan_output
+from core.sender import sender_identity
 from runtime.a2a_tools import A2AVendorTool
 from runtime.crew_tools import (
     ContractMetadataTool,
@@ -120,6 +121,7 @@ class CrewAIRuntime:
             return CrewResult(status="disabled", error="OpenCode key not configured")
 
         self.last_error = None
+        sender_name, sender_company = sender_identity()
         actions = _actions_text(redline_actions)
         feedback = _plain(human_feedback or "none")
         counter = _plain(counteroffer or {})
@@ -222,6 +224,7 @@ class CrewAIRuntime:
                     f"Redline findings:\n{_plain(actions)}\n"
                     "Do not invent negotiated terms or legal conclusions. Refer the vendor "
                     "to the attached tracked-changes document for exact wording. "
+                    f"Sign the email as {sender_name}, {sender_company}. "
                     "Return the fields subject and body. The body must be plain text."
                 ),
                 expected_output="A vendor-facing email in the required schema.",

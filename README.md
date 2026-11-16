@@ -722,6 +722,10 @@ Use a Gmail **App Password**, and make `SMTP_FROM` match the authenticated Gmail
 address (or a verified “Send mail as” alias). For a different SMTP provider,
 enter its host, port, username and password in the dashboard.
 
+Generated emails are signed as **Siddharth Jain, BML Munjal University** by
+default. Override the signature with `REDLINER_SENDER_NAME` and
+`REDLINER_SENDER_COMPANY`.
+
 For a step-by-step guide to every switch — model, SMTP, SQLite/Postgres, MCP,
 Live OSINT, guardrails, Langfuse, A2A, Gmail polling and demo auth — see
 [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). Check the current state with:
@@ -806,7 +810,7 @@ for the label/filter setup. See
 trace output, and the remaining rubric gaps.
 
 ### 🧪 Running the Automated Test Suite
-To verify the entire agentic pipeline, run all 83 tests:
+To verify the entire agentic pipeline, run all 86 tests:
 
 ```bash
 PYTHONPATH=. uv run pytest -q

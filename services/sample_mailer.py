@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from services.email_connector import EmailConnectorService
+from core.sender import sender_identity
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SAMPLE_DIR = BASE_DIR / "data" / "sample_contracts"
@@ -46,7 +47,8 @@ def build_sample_message(
     body: Optional[str] = None,
 ) -> EmailMessage:
     sender = str(config.get("smtp_user") or config.get("from_email") or "").strip()
-    sender_name = str(config.get("from_name") or "RedLiner Test Sender").strip()
+    display_name, company_name = sender_identity()
+    sender_name = str(config.get("from_name") or display_name).strip()
     if not sender:
         raise ValueError("SMTP sender is not configured in data/email_config.json")
 
@@ -65,7 +67,7 @@ def build_sample_message(
             "poller is enabled, create a filter that applies the RedLiner label to "
             "messages with this subject, or apply the label manually. The backend "
             "must be running for the poller to process it.\n\n"
-            "Regards,\nRedLiner Test Harness\n"
+            f"Regards,\n{display_name}\n{company_name}\n"
         )
     )
 

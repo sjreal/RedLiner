@@ -195,6 +195,10 @@ EMAIL_PROVIDER=smtp
 SMTP_USER=your.address@gmail.com
 SMTP_PASSWORD=your-google-app-password
 SMTP_FROM=your.address@gmail.com
+
+# Optional signature override; these values are the defaults.
+REDLINER_SENDER_NAME=Siddharth Jain
+REDLINER_SENDER_COMPANY=BML Munjal University
 ```
 
 **Gmail setup**

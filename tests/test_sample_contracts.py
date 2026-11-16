@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from agents.legal_redliner import LegalRedlinerAgent
+from agents.orchestrator import MainOrchestrator
+from core.deal_store import DealRepository
 from subgraphs.document_parser import DocumentParserSubgraph
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -65,3 +67,19 @@ def test_dpa_sample_triggers_multiple_critical_findings(tmp_path):
         "RULE_LAW_004",
     }
     assert result.critical_count >= 1
+
+
+def test_priced_sample_computes_utility(tmp_path):
+    orchestrator = MainOrchestrator(
+        repository=DealRepository(tmp_path / "deals.db")
+    )
+    state = orchestrator.process_incoming_deal(
+        deal_id="UTIL-SAMPLE",
+        contract_path=SAMPLE_DIR / "sample_clean_saas_agreement.docx",
+        vendor_name="ApexCloud Enterprise Ltd",
+        output_dir=tmp_path,
+    )
+    assert state.offered_price == 120000
+    assert state.target_price == 108000
+    assert state.normalized_utility_score > 0
+    assert state.finance_analysis.get("status") == "complete"

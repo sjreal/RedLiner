@@ -204,6 +204,7 @@ def test_deal_api_endpoints():
     )
     assert "risk_tier" in listed_deal
     assert "utility" in listed_deal
+    assert "utility_available" in listed_deal
     assert "requires_human_approval" in listed_deal
 
     detail = client.get("/api/deals/API-HITL-1")

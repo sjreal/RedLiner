@@ -56,7 +56,7 @@ async function loadDeals() {
         </span>
         <span class="deal-row-meta">
           <span class="status-chip ${statusClass(deal.status)}">${esc(deal.status)}</span>
-          <small>iter ${esc(deal.iteration)}/${esc(deal.max_iterations)} · util ${Number(deal.utility || 0).toFixed(2)}</small>
+          <small>iter ${esc(deal.iteration)}/${esc(deal.max_iterations)} · util ${deal.utility_available ? Number(deal.utility || 0).toFixed(2) : "N/A"}</small>
           ${deal.llm_tokens ? `<small>${esc(deal.llm_tokens)} tokens${deal.llm_cost ? ` · $${Number(deal.llm_cost).toFixed(4)}` : ""}</small>` : ""}
         </span>
       </button>
@@ -107,7 +107,15 @@ async function openDeal(dealId, preloaded = null) {
     $("deal-vendor").textContent = deal.vendor_profile?.company_name || "—";
     $("deal-risk").textContent = deal.vendor_profile?.risk_tier || "—";
     $("deal-iteration").textContent = `${deal.iteration}/${deal.max_iterations}`;
-    $("deal-utility").textContent = Number(deal.normalized_utility_score || 0).toFixed(2);
+    const hasUtility = deal.finance_analysis?.status === "complete" || deal.tradeoff_proposal?.status === "complete";
+    $("deal-utility").textContent = hasUtility ? Number(deal.normalized_utility_score || 0).toFixed(2) : "N/A";
+    $("deal-utility").title = hasUtility ? "" : "Utility requires offered and target prices.";
+    const utilityHint = $("deal-utility-hint");
+    if (utilityHint) {
+      utilityHint.textContent = hasUtility
+        ? ""
+        : "Utility needs offered and target prices. Apply a counteroffer to provide them.";
+    }
     $("deal-summary").textContent = deal.human_review_summary?.summary_text || deal.convergence_reason || "No summary generated.";
     $("deal-counteroffer").textContent = deal.counteroffer && Object.keys(deal.counteroffer).length
       ? `Counteroffer: ${JSON.stringify(deal.counteroffer)}`

@@ -18,7 +18,8 @@ CLEAN_CLAUSES = [
         "Customer shall pay all undisputed invoice amounts on Net 60 terms. Customer "
         "may withhold payment in good faith for disputed amounts pending resolution. "
         "Late payments on undisputed sums accrue interest at the lesser of 1.0% per "
-        "annum or the maximum rate permitted by law.",
+        "annum or the maximum rate permitted by law. The annual subscription fee is "
+        "$120,000.",
     ),
     (
         "2. Intellectual Property Ownership",
@@ -66,7 +67,8 @@ UNFAVORABLE_CLAUSES = [
         "1. Payment and Billing Terms",
         "All invoices issued by Vendor are due upon receipt and payable within Net "
         "15 days. All fees are non-refundable and prepaid annually. Late payments "
-        "incur a 1.5% per month interest surcharge on the outstanding balance.",
+        "incur a 1.5% per month interest surcharge on the outstanding balance. The "
+        "annual subscription fee is $120,000.",
     ),
     (
         "2. Intellectual Property Ownership",
@@ -114,7 +116,8 @@ MEDIUM_RISK_CLAUSES = [
     (
         "1. Payment and Billing Terms",
         "Customer shall pay all undisputed invoices within Net 30 days. Late "
-        "payments accrue interest at 1.0% per month on undisputed balances.",
+        "payments accrue interest at 1.0% per month on undisputed balances. The "
+        "annual subscription fee is $120,000.",
     ),
     (
         "2. Intellectual Property Ownership",
@@ -158,7 +161,8 @@ SERVICES_CLAUSES = [
     (
         "1. Payment and Billing Terms",
         "Customer shall pay undisputed milestone invoices within Net 45 days of "
-        "receipt. Late payments accrue interest at 1.0% per annum.",
+        "receipt. Late payments accrue interest at 1.0% per annum. The total "
+        "professional services fee is $120,000.",
     ),
     (
         "2. Intellectual Property Ownership",
@@ -197,7 +201,7 @@ DPA_CLAUSES = [
     (
         "1. Payment and Billing Terms",
         "Customer shall pay all invoices within Net 30 days. Fees are "
-        "non-refundable.",
+        "non-refundable. The annual data processing fee is $120,000.",
     ),
     (
         "2. Data Privacy and Security",

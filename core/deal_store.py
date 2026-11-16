@@ -200,10 +200,12 @@ class DealRepository:
                 state = {}
             vendor = state.get("vendor_profile") or {}
             usage = state.get("llm_usage") or {}
+            finance = state.get("finance_analysis") or {}
             item.update(
                 {
                     "risk_tier": vendor.get("risk_tier"),
                     "utility": state.get("normalized_utility_score", 0.0),
+                    "utility_available": finance.get("status") == "complete",
                     "requires_human_approval": state.get("requires_human_approval", False),
                     "llm_tokens": usage.get("total_tokens"),
                     "llm_cost": usage.get("cost_usd"),

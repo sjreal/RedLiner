@@ -800,7 +800,7 @@ for the label/filter setup. See
 trace output, and the remaining rubric gaps.
 
 ### 🧪 Running the Automated Test Suite
-To verify the entire agentic pipeline, run all 79 tests:
+To verify the entire agentic pipeline, run all 80 tests:
 
 ```bash
 PYTHONPATH=. uv run pytest -q

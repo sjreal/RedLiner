@@ -591,6 +591,9 @@ data/sample_contracts/sample_unfavorable_saas_agreement.docx
 | `sample_data_processing_addendum.docx` | 6 findings, at least one critical |
 | `sample_unfavorable_saas_agreement.docx` | 7 findings, human review |
 
+Each sample includes a `$120,000` annual fee. The default target is 10% below
+that offer, so the utility score is populated instead of showing `N/A`.
+
 Send one to the address configured in `data/email_config.json` from the dashboard’s
 **Send sample contracts** card, or from the CLI:
 

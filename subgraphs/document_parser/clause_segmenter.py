@@ -98,29 +98,10 @@ class ClauseSegmenter:
         clauses: List[Clause] = []
         current_heading = "Contract Header"
         current_clause_paragraphs: List[str] = []
-        current_p_index = 0
+        current_heading_index = 0
+        current_body_index: int | None = None
 
-        for idx, text, is_head, _ in raw_paragraphs:
-            if is_head and len(text) < 120:
-                if current_clause_paragraphs:
-                    clause_text = "\n".join(current_clause_paragraphs)
-                    c_type, conf = cls.classify(current_heading, clause_text)
-                    clauses.append(Clause(
-                        id=f"clause_{len(clauses) + 1}",
-                        clause_type=c_type,
-                        heading=current_heading,
-                        text=clause_text,
-                        paragraph_index=current_p_index,
-                        confidence=conf,
-                        original_text=clause_text,
-                    ))
-                    current_clause_paragraphs = []
-                current_heading = text
-                current_p_index = idx
-            else:
-                current_clause_paragraphs.append(text)
-
-        if current_clause_paragraphs:
+        def emit_clause() -> None:
             clause_text = "\n".join(current_clause_paragraphs)
             c_type, conf = cls.classify(current_heading, clause_text)
             clauses.append(Clause(
@@ -128,9 +109,30 @@ class ClauseSegmenter:
                 clause_type=c_type,
                 heading=current_heading,
                 text=clause_text,
-                paragraph_index=current_p_index,
+                # Redlines must target the clause body, not its heading.
+                paragraph_index=(
+                    current_body_index
+                    if current_body_index is not None
+                    else current_heading_index
+                ),
                 confidence=conf,
                 original_text=clause_text,
             ))
+
+        for idx, text, is_head, _ in raw_paragraphs:
+            if is_head and len(text) < 120:
+                if current_clause_paragraphs:
+                    emit_clause()
+                    current_clause_paragraphs = []
+                current_heading = text
+                current_heading_index = idx
+                current_body_index = None
+            else:
+                if current_body_index is None and text.strip():
+                    current_body_index = idx
+                current_clause_paragraphs.append(text)
+
+        if current_clause_paragraphs:
+            emit_clause()
 
         return clauses

@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 import secrets
 import shutil
@@ -7,7 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -32,6 +33,9 @@ from subgraphs.vendor_information.osint_collectors import OSINTCollector
 from Helpers.logger import get_recent_logs
 from core.env import load_app_env
 from core.report import build_deal_report, report_to_markdown
+from core.docx_finalize import finalize_docx
+from services.opencode_llm import OpenCodeLLM
+from services.sample_mailer import list_samples, send_sample_contract
 
 load_app_env()
 
@@ -201,6 +205,22 @@ async def parse_document(file: Optional[UploadFile] = File(None), sample_name: O
         raise HTTPException(status_code=500, detail=f"Document parsing error: {str(e)}")
 
 
+@app.get("/api/samples/{filename}")
+def download_sample_contract(filename: str):
+    """Return a bundled sample contract for the inbound-email simulator."""
+    safe_name = Path(filename).name
+    sample_path = SAMPLE_DIR / safe_name
+    if not sample_path.exists():
+        raise HTTPException(status_code=404, detail=f"Sample '{safe_name}' not found.")
+    return FileResponse(
+        path=str(sample_path),
+        filename=safe_name,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if sample_path.suffix.lower() == ".docx"
+        else "application/pdf",
+    )
+
+
 class RedlineRequest(BaseModel):
     filename: str
 
@@ -244,12 +264,31 @@ def run_redline(req: RedlineRequest):
 
 
 @app.get("/api/redliner/download/{filename}")
-def download_redlined_file(filename: str):
+def download_redlined_file(filename: str, clean: bool = False):
+    """Download the redlined DOCX, or a clean copy with changes accepted.
+
+    ``?clean=true`` accepts all tracked insertions/deletions and removes
+    comments, producing the document a counterparty would receive.
+    """
     file_path = OUTPUTS_DIR / filename
     if not file_path.exists():
         file_path = SAMPLE_DIR / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File '{filename}' not found.")
+
+    if clean and file_path.suffix.lower() == ".docx":
+        final_stem = (
+            file_path.stem[: -len("_redlined")]
+            if file_path.stem.endswith("_redlined")
+            else file_path.stem
+        )
+        final_path = OUTPUTS_DIR / f"{final_stem}_final.docx"
+        try:
+            finalize_docx(file_path, final_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Finalize error: {str(e)}")
+        file_path = final_path
+        filename = final_path.name
 
     return FileResponse(
         path=str(file_path),
@@ -493,6 +532,115 @@ def send_test_email(req: SendTestEmailRequest):
         return {"status": "SUCCESS", "result": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Test email failed: {str(e)}")
+
+
+class SendSampleRequest(BaseModel):
+    contract: str = "sample_clean_saas_agreement.docx"
+    to: Optional[str] = None
+
+
+@app.get("/api/email/samples")
+def get_sample_contracts():
+    """List the bundled sample contracts available for sending."""
+    return {"samples": list_samples()}
+
+
+@app.post("/api/email/send-sample")
+def send_sample_email(req: SendSampleRequest):
+    """Send a bundled sample contract to the configured mailbox."""
+    try:
+        return send_sample_contract(req.contract, recipient=req.to)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Sample email failed: {type(exc).__name__}: {exc}",
+        ) from exc
+
+
+class DraftStreamRequest(BaseModel):
+    deal_id: str
+    instructions: Optional[str] = ""
+
+
+def _sse(event: str, data: Dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
+
+
+@app.post("/api/email/draft-stream")
+def stream_email_draft(req: DraftStreamRequest):
+    """Stream a counter-proposal email body token by token (SSE)."""
+    state = orchestrator.get_deal(req.deal_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"Deal '{req.deal_id}' not found.")
+    if state.redline_result is None:
+        raise HTTPException(
+            status_code=400,
+            detail="This deal has no redline result to draft from.",
+        )
+
+    redline = state.redline_result
+    vendor = state.vendor_profile
+    vendor_name = vendor.company_name if vendor else "Vendor"
+    recipient_name = f"{vendor_name} Legal Counsel"
+    actions = [
+        {
+            "clause_type": action.clause_type.value,
+            "rule_name": action.rule_name,
+            "severity": action.severity.value,
+            "requested_change": action.replacement_text[:500],
+        }
+        for action in redline.actions
+    ]
+    llm = OpenCodeLLM()
+
+    def events():
+        yield _sse("status", {"status": "thinking", "model": llm.model})
+        collected: List[str] = []
+        try:
+            for token in llm.stream_counter_proposal(
+                vendor_name=vendor_name,
+                recipient_name=recipient_name,
+                contract_name=redline.contract_name,
+                output_filename=redline.output_docx_filename,
+                actions=actions,
+                instructions=req.instructions or "",
+            ):
+                collected.append(token)
+                yield _sse("token", {"text": token})
+            text = "".join(collected).strip()
+            if not text:
+                raise RuntimeError("The model returned no text.")
+            if state.counter_proposal_email is not None:
+                state.counter_proposal_email.counter_proposal_body = text
+                orchestrator.repository.save(
+                    state,
+                    event_type="email_draft_streamed",
+                    payload={"deal_id": req.deal_id, "chars": len(text)},
+                )
+            yield _sse(
+                "done",
+                {
+                    "text": text,
+                    "chars": len(text),
+                    "usage": llm.last_usage,
+                },
+            )
+        except Exception as exc:
+            yield _sse("error", {"error": str(exc)})
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.post("/api/webhook/email")

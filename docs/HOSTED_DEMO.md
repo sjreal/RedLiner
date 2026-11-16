@@ -2,7 +2,7 @@
 
 For deployment options and cost comparison, see
 [`../deploy/README.md`](../deploy/README.md). The cheapest all-in-one path is
-[`AWS Lightsail`](../deploy/aws/README.md); the zero-cost path is
+[`AWS Lightsail`](../deploy/aws/README.md#deployment-topology); the zero-cost path is
 [`Render free`](../deploy/render/README.md).
 
 YAGNI deployment for a college demo:

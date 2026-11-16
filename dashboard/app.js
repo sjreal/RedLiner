@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initPlaybookManager();
   initVendorRadar();
   initEmailDispatcher();
+  initSampleMailer();
   initHelpersAudit();
 
   // Load defaults on boot
@@ -31,6 +32,18 @@ function showToast(message, duration = 3500) {
   setTimeout(() => {
     toast.remove();
   }, duration);
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      resolve(result.includes(",") ? result.split(",")[1] : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error("Could not read file"));
+    reader.readAsDataURL(blob);
+  });
 }
 
 function escapeHtml(str) {
@@ -694,10 +707,117 @@ async function promptNewVendorAssessment() {
 }
 
 // ---------------- 4. Cloudflare Email Dispatcher & Delivery Settings ----------------
+function initSampleMailer() {
+  const select = document.getElementById("sample-contract-select");
+  const recipient = document.getElementById("sample-recipient");
+  const status = document.getElementById("sample-send-status");
+  const sendOne = document.getElementById("btn-send-sample");
+  const sendBoth = document.getElementById("btn-send-both-samples");
+  if (!select || !sendOne || !sendBoth) return;
+
+  const setStatus = (text, error = false) => {
+    status.textContent = text;
+    status.style.color = error ? "var(--badge-crit-text)" : "var(--ink-muted)";
+  };
+  const setBusy = (busy) => {
+    sendOne.disabled = busy;
+    sendBoth.disabled = busy;
+  };
+
+  async function loadSamples() {
+    try {
+      const res = await fetch("/api/email/samples");
+      if (!res.ok) throw new Error("Could not load the sample list.");
+      const data = await res.json();
+      const samples = data.samples || [];
+      select.innerHTML = samples
+        .map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+        .join("");
+      const preferred = samples.find((name) => name.includes("clean"));
+      if (preferred) select.value = preferred;
+    } catch (err) {
+      setStatus(err.message, true);
+    }
+  }
+
+  async function loadRecipient() {
+    try {
+      const res = await fetch("/api/email/config");
+      if (!res.ok) return;
+      const cfg = await res.json();
+      const address = cfg.smtp_user || cfg.from_email || "";
+      if (address && !recipient.value) recipient.value = address;
+    } catch (err) {
+      // The API defaults to SMTP_USER when the field is empty.
+    }
+  }
+
+  async function sendOneSample(name) {
+    const res = await fetch("/api/email/send-sample", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contract: name,
+        to: recipient.value.trim() || null,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Sample send failed.");
+    return data;
+  }
+
+  sendOne.addEventListener("click", async () => {
+    const name = select.value;
+    if (!name) {
+      setStatus("Choose a sample first.", true);
+      return;
+    }
+    setBusy(true);
+    setStatus(`Sending ${name}…`);
+    try {
+      const data = await sendOneSample(name);
+      setStatus(`Sent ${data.contract} to ${data.recipient}. Check your inbox and the RedLiner label.`);
+      showToast(`Sample sent: ${data.contract}`);
+    } catch (err) {
+      setStatus(`Send failed: ${err.message}`, true);
+      showToast(`Sample send failed: ${err.message}`);
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  sendBoth.addEventListener("click", async () => {
+    const samples = [
+      "sample_clean_saas_agreement.docx",
+      "sample_unfavorable_saas_agreement.docx",
+    ];
+    setBusy(true);
+    const sent = [];
+    try {
+      for (const name of samples) {
+        setStatus(`Sending ${name}…`);
+        const data = await sendOneSample(name);
+        sent.push(data.contract);
+      }
+      setStatus(`Sent ${sent.join(" and ")}. Check your inbox and the RedLiner label.`);
+      showToast("Both sample contracts sent.");
+    } catch (err) {
+      setStatus(`Send failed: ${err.message}`, true);
+      showToast(`Sample send failed: ${err.message}`);
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  loadSamples();
+  loadRecipient();
+}
+
 function initEmailDispatcher() {
   const inboundForm = document.getElementById("inbound-webhook-form");
   const outboundForm = document.getElementById("outbound-dispatch-form");
   const btnRefreshPreview = document.getElementById("btn-refresh-email-preview");
+  const btnStreamPreview = document.getElementById("btn-stream-email-preview");
   const btnViewWorkbench = document.getElementById("btn-view-redlines-workbench");
 
   const emailConfigForm = document.getElementById("email-config-form");
@@ -790,17 +910,32 @@ function initEmailDispatcher() {
     btnTrigger.disabled = true;
     btnTrigger.innerText = "⚡ Ingesting & Running Pipeline...";
 
-    const payload = {
-      message_id: `cf_msg_${Date.now()}`,
-      from_email: fromEmail,
-      from_name: "ApexCloud Commercial Counsel",
-      to_email: "negotiations@redliner.ai",
-      subject: subject,
-      text_content: "Please find attached our standard Master Services Agreement for execution.",
-      attachments: []
-    };
+    window.RedLinerLLM?.show({
+      title: "Running the contract pipeline…",
+      status: "Parsing, redlining and drafting the portfolio response…",
+      cancelable: false,
+    });
 
     try {
+      const sampleResponse = await fetch(`/api/samples/${encodeURIComponent(contractSelect)}`);
+      if (!sampleResponse.ok) throw new Error("Could not load the selected sample contract.");
+      const sampleBlob = await sampleResponse.blob();
+      const payload = {
+        message_id: `cf_msg_${Date.now()}`,
+        from_email: fromEmail,
+        from_name: "ApexCloud Commercial Counsel",
+        to_email: "negotiations@redliner.ai",
+        subject: subject,
+        text_content: "Please find attached our standard Master Services Agreement for execution.",
+        attachments: [
+          {
+            filename: contractSelect,
+            content_base64: await blobToBase64(sampleBlob),
+            content_type: sampleBlob.type || "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          }
+        ]
+      };
+
       const res = await fetch("/api/webhook/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -831,6 +966,7 @@ function initEmailDispatcher() {
     } catch (err) {
       showToast(`Webhook error: ${err.message}`);
     } finally {
+      window.RedLinerLLM?.hide();
       btnTrigger.disabled = false;
       btnTrigger.innerText = "Trigger Cloudflare Webhook";
     }
@@ -839,6 +975,36 @@ function initEmailDispatcher() {
   btnRefreshPreview.addEventListener("click", () => {
     if (currentRedlineResult) updateEmailPreview(currentRedlineResult);
   });
+
+  if (btnStreamPreview) {
+    btnStreamPreview.addEventListener("click", async () => {
+      const dealId = document.getElementById("outbound-deal-id").value.trim();
+      const preview = document.getElementById("outbound-body-preview");
+      if (!dealId) {
+        showToast("Run the inbound pipeline or enter a deal ID first.");
+        return;
+      }
+      preview.value = "";
+      btnStreamPreview.disabled = true;
+      try {
+        await window.RedLinerLLM.streamDraft({
+          dealId,
+          instructions: "Draft a concise, collaborative vendor-facing email. Do not invent terms.",
+          onToken: (token) => {
+            preview.value += token;
+            preview.scrollTop = preview.scrollHeight;
+          },
+          onDone: (text) => {
+            preview.value = text;
+            showToast("Streaming draft complete.");
+          },
+          onError: (err) => showToast(`Draft error: ${err.message}`),
+        });
+      } finally {
+        btnStreamPreview.disabled = false;
+      }
+    });
+  }
 
   // Outbound dispatch form
   outboundForm.addEventListener("submit", async (e) => {

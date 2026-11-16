@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2026.8">
+  <link rel="stylesheet" href="style.css?v=2026.9">
 </head>
 <body>
   <header class="app-header">
@@ -54,7 +54,8 @@
             <p class="card-desc" id="deal-subtitle">Pick a row to review its context.</p>
           </div>
           <div class="deal-header-actions">
-            <a id="btn-deal-docx" class="btn btn-secondary" href="#">Download DOCX</a>
+            <a id="btn-deal-docx" class="btn btn-secondary" href="#">Download redline</a>
+            <a id="btn-deal-final" class="btn btn-secondary" href="#">Download final (clean)</a>
             <a id="btn-deal-report" class="btn btn-secondary" href="#" target="_blank" rel="noopener">Download report</a>
             <span id="deal-status" class="status-chip">—</span>
           </div>
@@ -97,6 +98,7 @@
           <pre class="deal-email-body" id="deal-email-body">—</pre>
           <div class="deal-dispatch-row">
             <input id="dispatch-recipient" class="search-input" type="email" placeholder="Recipient email">
+            <button class="btn btn-secondary" id="btn-stream-deal">Stream draft</button>
             <button class="btn btn-primary" id="btn-dispatch-deal">Dispatch to vendor</button>
           </div>
 
@@ -126,6 +128,18 @@
     </div>
   </main>
 
-  <script src="deals.js?v=2026.8"></script>
+  <!-- LLM loading / token-stream overlay -->
+  <div id="llm-loading-overlay" class="llm-loading-overlay" hidden>
+    <div class="llm-loading-card" role="dialog" aria-modal="true" aria-labelledby="llm-loading-title">
+      <div class="llm-spinner" aria-hidden="true"></div>
+      <h3 id="llm-loading-title">Drafting counter-proposal…</h3>
+      <p id="llm-loading-status" class="llm-loading-status">Waiting for the model's first token…</p>
+      <pre id="llm-loading-stream" class="llm-loading-stream"></pre>
+      <button type="button" class="btn btn-secondary" id="llm-loading-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <script src="llm_stream.js?v=2026.9"></script>
+  <script src="deals.js?v=2026.9"></script>
 </body>
 </html>

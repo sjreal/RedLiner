@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import html
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +19,28 @@ COMMENTS_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordproce
 
 def _escape_xml(text: str) -> str:
     return html.escape(text, quote=True)
+
+
+def _is_heading(paragraph: docx.text.paragraph.Paragraph) -> bool:
+    style_name = (paragraph.style.name or "").strip().lower()
+    return style_name == "title" or style_name.startswith("heading")
+
+
+def _resolve_body_paragraph(paragraphs, p_idx: int):
+    """Return the clause body paragraph for a recorded index.
+
+    Older parsed states stored the heading index. Instead of rewriting a
+    heading, walk forward to the first non-empty body paragraph.
+    """
+    if p_idx < 0 or p_idx >= len(paragraphs):
+        return None
+    target = paragraphs[p_idx]
+    if target.text.strip() and not _is_heading(target):
+        return target
+    for candidate in paragraphs[p_idx + 1:]:
+        if candidate.text.strip() and not _is_heading(candidate):
+            return candidate
+    return None
 
 
 class WordModifier:
@@ -54,15 +78,10 @@ class WordModifier:
         paragraphs = doc.paragraphs
 
         for p_idx, p_actions in action_map.items():
-            if p_idx >= len(paragraphs):
+            target_p = _resolve_body_paragraph(paragraphs, p_idx)
+            if target_p is None:
                 continue
-
-            target_p = paragraphs[p_idx]
             original_text = target_p.text
-
-            if not original_text.strip() and p_idx + 1 < len(paragraphs):
-                target_p = paragraphs[p_idx + 1]
-                original_text = target_p.text
 
             for act in p_actions:
                 c_id = next_comment_id

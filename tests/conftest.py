@@ -14,6 +14,9 @@ os.environ["OPENCODE_API_KEY"] = ""
 # fallback so it stays fast and does not spawn subprocesses.
 os.environ["MCP_ENABLED"] = "false"
 os.environ["LIVE_OSINT_ENABLED"] = "false"
+# Keep local .env demo credentials from turning Basic Auth on for API tests.
+os.environ["DEMO_USER"] = "demo"
+os.environ["DEMO_PASSWORD"] = ""
 os.environ["REDLINER_DB_PATH"] = str(
     Path(tempfile.mkdtemp(prefix="redliner-tests-")) / "deals.db"
 )

@@ -1,0 +1,55 @@
+%%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 14, "diagramPadding": 4, "curve": "basis"}}}%%
+flowchart TD
+    classDef entry fill:#EBF3FF,stroke:#0066CC,stroke-width:1.5px,color:#201515;
+    classDef app fill:#FFF3EB,stroke:#FF4F00,stroke-width:2px,color:#201515;
+    classDef adk fill:#F3EEFF,stroke:#6B4EFF,stroke-width:1.5px,color:#201515;
+    classDef crew fill:#EAF7EE,stroke:#1F8A4C,stroke-width:1.5px,color:#201515;
+    classDef tool fill:#F9F8F6,stroke:#8A8178,stroke-width:1.5px,color:#201515;
+    classDef out fill:#FFFFFF,stroke:#666666,stroke-dasharray: 4 3,color:#201515;
+    classDef hitl fill:#FFF0F0,stroke:#CC0000,stroke-width:2px,color:#201515;
+
+    UI["Dashboard / REST API"]:::entry
+    Gmail["Gmail IMAP poller<br/>GMAIL_POLL_ENABLED"]:::entry
+    Upload["Contract upload<br/>.docx / .pdf"]:::entry
+
+    subgraph App["FastAPI backend"]
+        direction TB
+        Auth["Shared Basic Auth"]:::app
+        API["API routes + static dashboard"]:::app
+        Orchestrator["MainOrchestrator<br/>shared NegotiationDealState"]:::app
+    end
+
+    subgraph ADK["Google ADK workflow"]
+        direction TB
+        Parse["document_parser → contract_terms"]:::adk
+        Review["legal_review ∥ vendor_intelligence"]:::adk
+        Commercial["commercial_loop<br/>concession_strategy → tradeoff_engine"]:::adk
+        Gate["approval_gate → deal_summary"]:::adk
+    end
+
+    subgraph Crew["CrewAI crew"]
+        direction TB
+        Procurement["Procurement Negotiator"]:::crew
+        Finance["Finance and Compliance Reviewer"]:::crew
+        Email["Vendor Email Writer"]:::crew
+    end
+
+    Services["MCP tools · A2A vendor agent · GLEIF OSINT · guardrails<br/>SQLite/PostgreSQL · Langfuse"]:::tool
+    Artifacts["Redlined DOCX · clean final copy<br/>DealReport · counter-proposal email"]:::out
+    HITL["Approve / Reject /<br/>Manual edit / Counteroffer"]:::hitl
+
+    UI --> Auth
+    Gmail --> API
+    Upload --> API
+    Auth --> API --> Orchestrator
+
+    Orchestrator --> Parse
+    Parse --> Review --> Commercial --> Gate
+    Gate --> Procurement --> Finance --> Email
+
+    Orchestrator -.-> Services
+    Review -.-> Services
+    Email -.-> Artifacts
+    Review -.-> Artifacts
+    Gate -->|human review| HITL
+    HITL -->|next iteration| Orchestrator

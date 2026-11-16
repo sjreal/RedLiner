@@ -270,8 +270,14 @@ concession rounds. The browser review workbench is at `/deals.html`; it exposes:
 - vendor counteroffer form and recorded extraction
 - immutable iteration snapshots and audit events
 - Langfuse trace link
+- streaming email-draft generation with a loading overlay and token-by-token text
 - effective demo settings (model, email provider, MCP, OSINT, guardrails,
   Langfuse, A2A, Gmail poller, database, demo auth)
+
+The **Stream draft** buttons use `POST /api/email/draft-stream` (SSE). The UI
+opens a loading overlay while waiting for the first token, then appends tokens as
+they arrive and saves the completed draft back to the deal. This requires
+`OPENCODE_API_KEY`; without it, use the deterministic template preview.
 
 `REVIEWER_EMAIL` and `REVIEWER_WEBHOOK_URL` enable reviewer notifications.
 The shared Basic Auth gate protects the workbench and APIs.
@@ -299,84 +305,68 @@ service use their own tokens.
 The RedLiner architecture strictly follows Section 5 of the project synopsis (`AG_AI_Project_Synopsis_Grp_8.pdf`):
 
 ```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 14, "diagramPadding": 4, "curve": "basis"}}}%%
 flowchart TD
-    %% Styling
-    classDef agent fill:#FFF3EB,stroke:#FF4F00,stroke-width:2px,color:#201515;
-    classDef subgraphBox fill:#F9F8F6,stroke:#D0C9C0,stroke-width:1.5px,color:#201515;
-    classDef external fill:#EBF3FF,stroke:#0066CC,stroke-width:1.5px,color:#201515;
+    classDef entry fill:#EBF3FF,stroke:#0066CC,stroke-width:1.5px,color:#201515;
+    classDef app fill:#FFF3EB,stroke:#FF4F00,stroke-width:2px,color:#201515;
+    classDef adk fill:#F3EEFF,stroke:#6B4EFF,stroke-width:1.5px,color:#201515;
+    classDef crew fill:#EAF7EE,stroke:#1F8A4C,stroke-width:1.5px,color:#201515;
+    classDef tool fill:#F9F8F6,stroke:#8A8178,stroke-width:1.5px,color:#201515;
+    classDef out fill:#FFFFFF,stroke:#666666,stroke-dasharray: 4 3,color:#201515;
     classDef hitl fill:#FFF0F0,stroke:#CC0000,stroke-width:2px,color:#201515;
 
-    %% Inbound Trigger
-    VendorEmail[("📧 Vendor Email with .docx / .pdf Attachment")]:::external
-    CFWorker["Cloudflare Email Worker (Edge Runtime)"]:::external
-    VendorEmail -->|MIME parse + base64 payload| CFWorker
-    CFWorker -->|Webhook POST /api/webhook/email| Orchestrator
+    UI["Dashboard / REST API"]:::entry
+    Gmail["Gmail IMAP poller<br/>GMAIL_POLL_ENABLED"]:::entry
+    Upload["Contract upload<br/>.docx / .pdf"]:::entry
 
-    %% Main Orchestrator
-    subgraph CoreAgents ["🤖 Main Orchestrator & Supervisor Node"]
-        Orchestrator["Main Orchestrator Agent<br/>(State Manager & Supervisor)"]:::agent
+    subgraph App["FastAPI backend"]
+        direction TB
+        Auth["Shared Basic Auth"]:::app
+        API["API routes + static dashboard"]:::app
+        Orchestrator["MainOrchestrator<br/>shared NegotiationDealState"]:::app
     end
 
-    %% Subgraphs
-    subgraph SG1 ["1. Document Parser Subgraph"]
-        DocParser["XML & PDF Extractor"]:::subgraphBox
-        ClauseSegmenter["Clause Segmenter (Typed Objects)"]:::subgraphBox
-        DocParser --> ClauseSegmenter
+    subgraph ADK["Google ADK workflow"]
+        direction TB
+        Parse["document_parser → contract_terms"]:::adk
+        Review["legal_review ∥ vendor_intelligence"]:::adk
+        Commercial["commercial_loop<br/>concession_strategy → tradeoff_engine"]:::adk
+        Gate["approval_gate → deal_summary"]:::adk
     end
 
-    subgraph SG2 ["2. Playbook Rule Matcher Subgraph"]
-        PolicyComp["Policy Comparator"]:::subgraphBox
-        subgraph ParallelChecks ["Parallel Policy Checkers"]
-            CheckLiability["⚖️ Liability & Caps"]:::subgraphBox
-            CheckIP["💡 Intellectual Property"]:::subgraphBox
-            CheckLaw["🏛️ Governing Law"]:::subgraphBox
-        end
-        ActionGen["Redline Action Generator"]:::subgraphBox
-        WordMod["Native Word OpenXML Modifier"]:::subgraphBox
-
-        PolicyComp --> ParallelChecks
-        ParallelChecks --> ActionGen
-        ActionGen --> WordMod
+    subgraph Crew["CrewAI crew"]
+        direction TB
+        Procurement["Procurement Negotiator"]:::crew
+        Finance["Finance and Compliance Reviewer"]:::crew
+        Email["Vendor Email Writer"]:::crew
     end
 
-    subgraph SG3 ["3. Vendor Information Subgraph"]
-        OSINT["OSINT Collectors (Registry, Sanctions, Domain)"]:::subgraphBox
-        ScoreAgg["Risk Score Aggregator (0-100)"]:::subgraphBox
-        OSINT --> ScoreAgg
-    end
+    Services["MCP tools · A2A vendor agent · GLEIF OSINT · guardrails<br/>SQLite/PostgreSQL · Langfuse"]:::tool
+    Artifacts["Redlined DOCX · clean final copy<br/>DealReport · counter-proposal email"]:::out
+    HITL["Approve / Reject /<br/>Manual edit / Counteroffer"]:::hitl
 
-    subgraph SG4 ["4. Tradeoff Engine Subgraph"]
-        MathEngine["Deterministic Utility Scoring Module"]:::subgraphBox
-        Guardrails["Guardrail Budget Checker"]:::subgraphBox
-        TradeoffGen["Counter-Offer Generator"]:::subgraphBox
-        MathEngine --> Guardrails --> TradeoffGen
-    end
+    UI --> Auth
+    Gmail --> API
+    Upload --> API
+    Auth --> API --> Orchestrator
 
-    subgraph SG5 ["5. Human Approval Subgraph (HITL)"]
-        SummaryAgent["Summary Agent (Plain English)"]:::hitl
-        InterruptionGate{"Interruption Gate<br/>(Critical Breaches?)"}:::hitl
-        FeedbackAgent["Feedback Agent<br/>(Approve / Reject / Edit)"]:::hitl
-        SummaryAgent --> InterruptionGate
-        InterruptionGate -->|If breached| FeedbackAgent
-    end
+    Orchestrator --> Parse
+    Parse --> Review --> Commercial --> Gate
+    Gate --> Procurement --> Finance --> Email
 
-    %% Wiring from Orchestrator
-    Orchestrator --> SG1
-    SG1 -->|Indexed Clauses| SG2
-    Orchestrator -->|Vendor Name| SG3
-    SG2 -->|Violations & Diffs| Orchestrator
-    SG3 -->|Risk Score & Sanctions| Orchestrator
-    SG2 -.-> SG4
-    
-    Orchestrator --> SG5
-
-    %% Outbound
-    EmailWriter["Email Writer Agent"]:::agent
-    OutboundEmail[("📤 Redlined .docx + Counter-Proposal Email")]:::external
-
-    InterruptionGate -->|Safe to Proceed / Approved| EmailWriter
-    EmailWriter --> OutboundEmail
+    Orchestrator -.-> Services
+    Review -.-> Services
+    Email -.-> Artifacts
+    Review -.-> Artifacts
+    Gate -->|human review| HITL
+    HITL -->|next iteration| Orchestrator
 ```
+
+Rendered: [SVG](docs/diagrams/architecture.svg) · [PNG](docs/diagrams/architecture.png) · [editable Mermaid source](docs/diagrams/architecture.mmd) · [all diagrams](docs/diagrams/README.md).
+
+Solid paths are the default flow. A2A, Gmail polling, PostgreSQL/Supabase and
+Langfuse are opt-in; without them the app uses SQLite, sandbox/SMTP email and a
+deterministic template, and tracing is a no-op.
 
 ---
 
@@ -384,8 +374,13 @@ flowchart TD
 
 Here is the exact lifecycle of a contract negotiation in RedLiner:
 
-```
-[Vendor Email] ➔ [Parse & Segment] ➔ [Parallel Audit & OSINT] ➔ [OpenXML Redline] ➔ [HITL Safety Check] ➔ [Counter Email]
+```text
+[Gmail poller / Upload]
+        ➔ [ADK parse, legal + vendor review, commercial loop]
+        ➔ [OpenXML tracked-change DOCX]
+        ➔ [CrewAI procurement, finance, email draft]
+        ➔ [HITL approve / reject / edit / counteroffer]
+        ➔ [SMTP / Resend dispatch]
 ```
 
 ### Step 1: Inbound Vendor Email Webhook
@@ -416,6 +411,15 @@ Here is the exact lifecycle of a contract negotiation in RedLiner:
    * Wraps approved corporate fallback text in `<w:ins>` elements (underlined text).
    * Injects `<w:commentRangeStart>`, `<w:commentRangeEnd>`, and `<w:commentReference>` tags tied to a newly provisioned `word/comments.xml` document part.
 4. The resulting `.docx` file contains native Word tracked changes that legal counsel can open, accept, or reject in Microsoft Word.
+5. A clean copy can be produced with all changes accepted and comments removed:
+
+   ```bash
+   PYTHONPATH=. uv run python core/docx_finalize.py \
+     data/outputs/vendor_saas_agreement_redlined.docx \
+     data/outputs/vendor_saas_agreement_final.docx
+   ```
+
+   The same is available from the workbench as **Download final (clean)**, or from the API with `?clean=true` on the download endpoint. The redlined file remains the audit artifact.
 
 ### Step 5: Financial Trade-Off Modeling
 1. The **Tradeoff Engine Subgraph** evaluates commercial terms.
@@ -734,6 +738,16 @@ Use a Gmail **App Password**, and make `SMTP_FROM` match the authenticated Gmail
 address (or a verified “Send mail as” alias). For a different SMTP provider,
 enter its host, port, username and password in the dashboard.
 
+For a step-by-step guide to every switch — model, SMTP, SQLite/Postgres, MCP,
+Live OSINT, guardrails, Langfuse, A2A, Gmail polling and demo auth — see
+[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). Check the current state with:
+
+```bash
+PYTHONPATH=. uv run python scripts/check_config.py
+# optional: probe the A2A agent card
+PYTHONPATH=. uv run python scripts/check_config.py --network
+```
+
 The Cloudflare Worker is still used for **inbound mail**. It posts Cloudflare
 Email Routing events to `http://localhost:8000/api/webhook/email` (configured in
 `wrangler.toml`). For a deployed Worker, change `REDLINER_WEBHOOK_URL` there to
@@ -762,9 +776,20 @@ a Resend key, the Worker’s outbound route returns a mock receipt, not a real
 delivered email. For a YAGNI hosted demo with nothing running locally (Render or AWS Lightsail +
 Supabase + hosted Gmail polling + Basic Auth), see
 [`docs/HOSTED_DEMO.md`](docs/HOSTED_DEMO.md) and
-[`deploy/README.md`](deploy/README.md). For the fuller Render + Cloudflare
-Email Routing setup, including inbound mail, secrets, and troubleshooting, see
-[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+[`deploy/README.md`](deploy/README.md). The AWS Lightsail/EC2 topology is
+diagrammed in
+[`deploy/aws/README.md#deployment-topology`](deploy/aws/README.md#deployment-topology).
+For the fuller Render + Cloudflare Email Routing setup, including inbound mail,
+secrets, and troubleshooting, see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+<details>
+<summary>AWS deployment topology (rendered)</summary>
+
+![AWS Lightsail Compose deployment](docs/diagrams/aws-deployment.svg)
+
+Editable source: [`deploy/aws/README.md#deployment-topology`](deploy/aws/README.md#deployment-topology).
+
+</details>
 
 If you do **not** own a Cloudflare domain, use the Gmail IMAP poller instead; no
 domain or inbound webhook is required:
@@ -774,13 +799,25 @@ domain or inbound webhook is required:
 PYTHONPATH=. uv run python scripts/gmail_inbox_poller.py --interval 60
 ```
 
+Send a sample contract to the configured mailbox from the dashboard’s
+**Send sample contracts** card, or from the CLI:
+
+```bash
+PYTHONPATH=. uv run python scripts/send_sample_contract.py --list
+PYTHONPATH=. uv run python scripts/send_sample_contract.py \
+  --contract sample_unfavorable_saas_agreement.docx
+```
+
+See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md#sending-a-sample-contract-to-the-poller)
+for the Gmail label/filter step and the `--local-webhook` alternative.
+
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#no-domain-alternative-poll-gmail-over-imap)
 for the label/filter setup. See
 [`docs/MILESTONE_40.md`](docs/MILESTONE_40.md) for workflow details, guardrails,
 trace output, and the remaining rubric gaps.
 
 ### 🧪 Running the Automated Test Suite
-To verify the entire agentic pipeline, run all 62 tests:
+To verify the entire agentic pipeline, run all 73 tests:
 
 ```bash
 PYTHONPATH=. uv run pytest -q

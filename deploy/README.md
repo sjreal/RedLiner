@@ -9,6 +9,9 @@
 | AWS EC2 t4g.small | free trial/credits only | ✅ | ✅ | ✅ | if eligible, otherwise not cheap |
 | Cloudflare Workers | $0 | ❌ Python/FastAPI not supported | — | — | email edge only |
 
+The AWS all-in-one topology is diagrammed in
+[`aws/README.md#deployment-topology`](aws/README.md#deployment-topology).
+
 Recommended for the college demo:
 
 - **Zero budget and tolerant of sleep:** Render free.

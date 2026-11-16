@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2026.7">
+  <link rel="stylesheet" href="style.css?v=2026.9">
 </head>
 <body>
 
@@ -393,6 +393,8 @@
                 <select id="inbound-contract-select" class="search-input" style="width: 100%;">
                   <option value="vendor_saas_agreement.docx">vendor_saas_agreement.docx (Standard SaaS Draft)</option>
                   <option value="vendor_saas_agreement.pdf">vendor_saas_agreement.pdf (Digital PDF Draft)</option>
+                  <option value="sample_clean_saas_agreement.docx">sample_clean_saas_agreement.docx (Passes playbook)</option>
+                  <option value="sample_unfavorable_saas_agreement.docx">sample_unfavorable_saas_agreement.docx (7 violations)</option>
                 </select>
               </div>
               <button type="submit" id="btn-trigger-webhook" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 8px;">
@@ -492,6 +494,25 @@
               </div>
             </form>
           </div>
+
+          <!-- Sample Contract Mailer -->
+          <div class="card" style="margin-top: 16px;">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">📨 Send sample contracts</h2>
+                <p class="card-desc">Send a bundled test contract to your configured address.</p>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <select id="sample-contract-select" class="search-input" style="width: 100%;"></select>
+              <input id="sample-recipient" class="search-input" type="email" style="width: 100%;" placeholder="Recipient email (defaults to SMTP user)">
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary" id="btn-send-sample">Send selected sample</button>
+                <button type="button" class="btn btn-secondary" id="btn-send-both-samples">Send both test samples</button>
+              </div>
+              <p id="sample-send-status" class="card-desc"></p>
+            </div>
+          </div>
         </div>
 
         <!-- Right: Outbound Counter-Proposal Dispatcher -->
@@ -531,9 +552,12 @@
                 <textarea id="outbound-body-preview" class="search-input" rows="10" style="width: 100%; font-family: monospace; font-size: 12px; resize: vertical; line-height: 1.5;"></textarea>
               </div>
 
-              <div style="display: flex; justify-content: flex-end; gap: 12px;">
+              <div style="display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap;">
                 <button type="button" class="btn btn-secondary" id="btn-refresh-email-preview">
                   <span>Regenerate Text</span>
+                </button>
+                <button type="button" class="btn btn-secondary" id="btn-stream-email-preview">
+                  <span>✨ Stream LLM draft</span>
                 </button>
                 <button type="submit" class="btn btn-primary" id="btn-send-counter-email">
                   <span>🚀 Dispatch Counter-Proposal Email</span>
@@ -598,6 +622,18 @@
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="app.js?v=2026.7"></script>
+  <!-- LLM loading / token-stream overlay -->
+  <div id="llm-loading-overlay" class="llm-loading-overlay" hidden>
+    <div class="llm-loading-card" role="dialog" aria-modal="true" aria-labelledby="llm-loading-title">
+      <div class="llm-spinner" aria-hidden="true"></div>
+      <h3 id="llm-loading-title">Drafting counter-proposal…</h3>
+      <p id="llm-loading-status" class="llm-loading-status">Waiting for the model's first token…</p>
+      <pre id="llm-loading-stream" class="llm-loading-stream"></pre>
+      <button type="button" class="btn btn-secondary" id="llm-loading-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <script src="llm_stream.js?v=2026.9"></script>
+  <script src="app.js?v=2026.9"></script>
 </body>
 </html>

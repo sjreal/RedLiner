@@ -12,21 +12,75 @@ the grading rubric: **CrewAI** and **Google ADK**.
 | `agents/orchestrator.py` | Facade | Shares state between the ADK workflow and the CrewAI crew, preserves the FastAPI contract |
 | `runtime/pipeline.py` | Python | Deterministic tools used by ADK nodes and the fallback path |
 
-The ADK graph is:
+The runtime graph is:
 
-```text
-document_parser
-      |
-analysis_team (ParallelAgent)
-  ├── legal_review
-  └── vendor_intelligence
-      |
-tradeoff_engine
-      |
-approval_gate
-      |
-deal_summary
+```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 14, "diagramPadding": 4, "curve": "basis"}}}%%
+flowchart TD
+    classDef facade fill:#FFF3EB,stroke:#FF4F00,stroke-width:2px,color:#201515;
+    classDef adk fill:#F3EEFF,stroke:#6B4EFF,stroke-width:1.5px,color:#201515;
+    classDef crew fill:#EAF7EE,stroke:#1F8A4C,stroke-width:1.5px,color:#201515;
+    classDef tool fill:#F9F8F6,stroke:#8A8178,stroke-width:1.5px,color:#201515;
+    classDef store fill:#FFF9DB,stroke:#B08900,stroke-width:1.5px,color:#201515;
+
+    O["MainOrchestrator<br/>shared NegotiationDealState"]:::facade
+
+    subgraph ADK["Google ADK 2.14"]
+        P["document_parser"]:::adk
+        T["contract_terms"]:::adk
+        L["legal_review"]:::adk
+        V["vendor_intelligence"]:::adk
+        C["commercial_loop<br/>concession_strategy → tradeoff_engine"]:::adk
+        G["approval_gate"]:::adk
+        S["deal_summary"]:::adk
+
+        P --> T
+        T --> L
+        T --> V
+        L --> C
+        V --> C
+        C --> G
+        G --> S
+    end
+
+    subgraph Crew["CrewAI 1.15"]
+        N["Procurement Negotiator"]:::crew
+        F["Finance and Compliance Reviewer"]:::crew
+        E["Vendor Email Writer"]:::crew
+
+        N --> F
+        F --> E
+    end
+
+    subgraph Tools["Shared interfaces"]
+        M["MCP stdio<br/>contract / vendor / finance"]:::tool
+        A2A["A2A vendor agent<br/>ADK HTTP service"]:::tool
+        D["Deterministic tools<br/>parser / redliner / tradeoff"]:::tool
+        DB[("SQLite or PostgreSQL")]:::store
+        LF["Langfuse"]:::store
+    end
+
+    O --> P
+    S --> O
+    O --> N
+    E --> O
+    P --> M
+    V --> M
+    N --> M
+    F --> M
+    N --> A2A
+    A2A -.->|same vendor logic| V
+    P --> D
+    L --> D
+    C --> D
+    O --> DB
+    O --> LF
 ```
+
+Rendered: [SVG](diagrams/runtime.svg) · [PNG](diagrams/runtime.png) · [editable Mermaid source](diagrams/runtime.mmd).
+
+CrewAI is disabled cleanly when `OPENCODE_API_KEY` is absent; the deterministic
+email template and the ADK-only path remain available.
 
 The CrewAI crew is sequential: procurement decision → finance review → email
 draft. CrewAI uses OpenCode Go through its native OpenAI-compatible adapter, with
@@ -108,7 +162,7 @@ PYTHONPATH=. uv run python -m uvicorn server.app:app --host 127.0.0.1 --port 800
 ## Verify the frameworks
 
 ```bash
-# 62 tests: core, API, framework, MCP, A2A, GLEIF matching, OSINT, guardrails, Langfuse tracing, email threading, storage, demo auth, reports, failure paths and HITL
+# 73 tests: core, API, framework, MCP, A2A, GLEIF matching, OSINT, guardrails, Langfuse tracing, LLM streaming, email threading, sample fixtures, sample mailer, storage, demo auth, reports, failure paths and HITL
 PYTHONPATH=. uv run pytest -q
 
 # Confirm the dependency graph is CrewAI + ADK, not LangGraph

@@ -22,7 +22,9 @@ Cloudflare owns the inbound email edge and the Worker. The Python backend still
 needs a normal public HTTPS host; it cannot run in a Workers isolate.
 
 For the cheapest reliable all-in-one deployment, use the AWS Lightsail Compose
-stack in [`../deploy/aws/README.md`](../deploy/aws/README.md). For a zero-cost
+stack and topology diagram in
+[`../deploy/aws/README.md#deployment-topology`](../deploy/aws/README.md#deployment-topology).
+For a zero-cost
 Render demo, see [`../deploy/render/README.md`](../deploy/render/README.md).
 
 ## Prerequisites

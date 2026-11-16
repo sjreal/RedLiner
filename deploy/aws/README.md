@@ -4,6 +4,60 @@ This runs the backend, dashboard, Gmail poller and A2A server on **one small
 Ubuntu VM** with Docker Compose. Supabase and Langfuse stay external on their free
 tiers, so there is no database or observability process on the VM.
 
+## Deployment topology
+
+```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 14, "diagramPadding": 4, "curve": "basis"}}}%%
+flowchart TD
+    classDef user fill:#EBF3FF,stroke:#0066CC,stroke-width:1.5px,color:#201515;
+    classDef aws fill:#FFF3EB,stroke:#FF4F00,stroke-width:2px,color:#201515;
+    classDef box fill:#F9F8F6,stroke:#8A8178,stroke-width:1.5px,color:#201515;
+    classDef store fill:#FFF9DB,stroke:#B08900,stroke-width:1.5px,color:#201515;
+    classDef ext fill:#FFFFFF,stroke:#666666,stroke-dasharray: 4 3,color:#201515;
+
+    Reviewer["Reviewer browser"]:::user
+
+    subgraph AWS["AWS Lightsail 1 GB / EC2 — Ubuntu 24.04, static IP"]
+        direction TB
+        Firewall["Firewall<br/>22 / 8000 / 8001"]:::aws
+        subgraph Compose["Docker Compose"]
+            direction TB
+            Backend["backend<br/>FastAPI + dashboard<br/>Gmail IMAP poller<br/>:8000"]:::box
+            A2A["a2a<br/>ADK vendor agent<br/>:8001"]:::box
+            Data[("bind mount<br/>data/")]:::store
+        end
+    end
+
+    subgraph SaaS["Managed services outside the VM"]
+        direction TB
+        Supabase[("Supabase PostgreSQL")]:::store
+        Langfuse["Langfuse Cloud"]:::ext
+        OpenCode["OpenCode Go<br/>model endpoint"]:::ext
+        Gmail["Gmail<br/>IMAP + SMTP"]:::ext
+        OSINT["GLEIF"]:::ext
+        Supabase ~~~ Langfuse ~~~ OpenCode ~~~ Gmail ~~~ OSINT
+    end
+
+    Reviewer -->|HTTP :8000| Firewall
+    Firewall --> Backend
+    Firewall -->|:8001| A2A
+    Backend -->|A2A + bearer token| A2A
+    Backend -->|DATABASE_URL| Supabase
+    Backend -->|traces| Langfuse
+    Backend -->|LLM calls| OpenCode
+    Backend -->|IMAP poll / SMTP send| Gmail
+    A2A -->|vendor risk| OSINT
+    Backend --> Data
+```
+
+Rendered: [SVG](../../docs/diagrams/aws-deployment.svg) · [PNG](../../docs/diagrams/aws-deployment.png) · [editable Mermaid source](../../docs/diagrams/aws-deployment.mmd).
+
+The backend and A2A containers are the only application processes on the VM.
+Supabase stores deals, events and snapshots; Langfuse stores traces; generated
+DOCX/report files stay on the `data/` bind mount. Port `8000` serves the dashboard
+and API, and the backend calls A2A on `8001`. Expose `8001` publicly only for
+direct A2A debugging.
+
 ## Recommended size and cost
 
 - **Lightsail 1 GB Ubuntu** — about **$5/month** (recommended minimum)

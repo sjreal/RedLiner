@@ -79,6 +79,10 @@ async function openDeal(dealId) {
     const docx = deal.counter_proposal_email?.redlined_docx_filename || deal.redline_result?.output_docx_filename;
     $("btn-deal-docx").href = docx ? `/api/redliner/download/${encodeURIComponent(docx)}` : "#";
     $("btn-deal-docx").style.display = docx ? "" : "none";
+    $("btn-deal-final").href = docx
+      ? `/api/redliner/download/${encodeURIComponent(docx)}?clean=true`
+      : "#";
+    $("btn-deal-final").style.display = docx ? "" : "none";
     $("deal-trace-link").href = deal.langfuse_trace_url || "#";
     $("deal-trace-link").textContent = deal.langfuse_trace_url || "Not recorded";
     $("dispatch-recipient").value = deal.counter_proposal_email?.recipient_email || "";
@@ -214,6 +218,33 @@ async function dispatchEmail() {
   }
 }
 
+async function streamDealDraft() {
+  if (!state.dealId) {
+    message("Select a deal first.", true);
+    return;
+  }
+  const body = $("deal-email-body");
+  const button = $("btn-stream-deal");
+  body.textContent = "";
+  button.disabled = true;
+  try {
+    await window.RedLinerLLM.streamDraft({
+      dealId: state.dealId,
+      instructions: "Draft a concise, collaborative vendor-facing email. Do not invent terms.",
+      onToken: (token) => {
+        body.textContent += token;
+      },
+      onDone: (text) => {
+        body.textContent = text;
+        message("Streaming draft complete.");
+      },
+      onError: (err) => message(`Draft error: ${err.message}`, true),
+    });
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function loadSettings() {
   try {
     const settings = await api("/api/settings");
@@ -239,6 +270,7 @@ $("btn-reject").addEventListener("click", () => decide("REJECT"));
 $("btn-manual").addEventListener("click", () => decide("MANUAL_EDIT"));
 $("btn-counteroffer").addEventListener("click", applyCounteroffer);
 $("btn-dispatch-deal").addEventListener("click", dispatchEmail);
+$("btn-stream-deal").addEventListener("click", streamDealDraft);
 
 const requestedDeal = new URLSearchParams(window.location.search).get("deal");
 loadDeals();

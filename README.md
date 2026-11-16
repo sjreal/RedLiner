@@ -305,7 +305,7 @@ service use their own tokens.
 The RedLiner architecture strictly follows Section 5 of the project synopsis (`AG_AI_Project_Synopsis_Grp_8.pdf`):
 
 ```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 14, "diagramPadding": 4, "curve": "basis"}}}%%
+%%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 6, "diagramPadding": 2, "curve": "basis"}}}%%
 flowchart TD
     classDef entry fill:#EBF3FF,stroke:#0066CC,stroke-width:1.5px,color:#201515;
     classDef app fill:#FFF3EB,stroke:#FF4F00,stroke-width:2px,color:#201515;

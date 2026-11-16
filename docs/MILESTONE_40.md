@@ -15,7 +15,7 @@ the grading rubric: **CrewAI** and **Google ADK**.
 The runtime graph is:
 
 ```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 14, "diagramPadding": 4, "curve": "basis"}}}%%
+%%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 6, "diagramPadding": 2, "curve": "basis"}}}%%
 flowchart TD
     classDef facade fill:#FFF3EB,stroke:#FF4F00,stroke-width:2px,color:#201515;
     classDef adk fill:#F3EEFF,stroke:#6B4EFF,stroke-width:1.5px,color:#201515;

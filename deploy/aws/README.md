@@ -7,7 +7,7 @@ tiers, so there is no database or observability process on the VM.
 ## Deployment topology
 
 ```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 14, "diagramPadding": 4, "curve": "basis"}}}%%
+%%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 6, "diagramPadding": 2, "curve": "basis"}}}%%
 flowchart TD
     classDef user fill:#EBF3FF,stroke:#0066CC,stroke-width:1.5px,color:#201515;
     classDef aws fill:#FFF3EB,stroke:#FF4F00,stroke-width:2px,color:#201515;
